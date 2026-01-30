@@ -27,8 +27,10 @@ Click **"Advanced"** and click **"Add Environment Variable"**. Add these keys (c
 | `NEWS_API_KEY` | `your_key...` |
 | `FIREBASE_API_KEY` | `AIzaSy...` |
 | `FIREBASE_AUTH_DOMAIN` | `...firebaseapp.com` |
-| `FIREBASE_PROJECT_ID` | `ai-news-intelligence-41bab` |
-| `PORT` | `10000` (or leave it to Render's default) |
+| `FIREBASE_PROJECT_ID` | `...` |
+| `FIREBASE_SERVICE_ACCOUNT_JSON` | `{"type": "service_account", ...}` |
+| `DATABASE_URL` | `sqlite:////data/news.db` |
+| `PORT` | `10000` |
 
 ## Step 5: (Optional but Recommended) Persistent Storage
 Since the app uses SQLite, your news data will be lost every time the app restarts on the Free tier. To keep your data:

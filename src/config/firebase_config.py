@@ -10,13 +10,27 @@ def initialize_firebase():
     """
     try:
         if not firebase_admin._apps:
+            # 1. Try JSON string from ENV (for Cloud/Render)
+            service_account_json = os.getenv("FIREBASE_SERVICE_ACCOUNT_JSON")
+            if service_account_json:
+                import json
+                try:
+                    cred_dict = json.loads(service_account_json)
+                    cred = credentials.Certificate(cred_dict)
+                    firebase_admin.initialize_app(cred)
+                    logger.info("Firebase Admin SDK initialized using JSON string from environment.")
+                    return
+                except Exception as ex:
+                    logger.error(f"Failed to load Firebase credentials from JSON string: {ex}")
+
+            # 2. Try file path
             service_account_path = os.getenv("FIREBASE_SERVICE_ACCOUNT_PATH")
             if service_account_path and os.path.exists(service_account_path):
                 cred = credentials.Certificate(service_account_path)
                 firebase_admin.initialize_app(cred)
-                logger.info("Firebase Admin SDK initialized with service account.")
+                logger.info("Firebase Admin SDK initialized with service account file.")
             else:
-                # Fallback to default credentials (for production/cloud)
+                # 3. Fallback to default
                 firebase_admin.initialize_app()
                 logger.info("Firebase Admin SDK initialized with default credentials.")
     except Exception as e:
