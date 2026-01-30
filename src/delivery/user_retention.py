@@ -76,6 +76,8 @@ async def get_saved_articles(firebase_uid: str, db: Session = Depends(get_db)):
     result = []
     for s in saves:
         news = s.news
+        if not news:
+            continue
         result.append({
             "id": news.id,
             "title": news.title,
@@ -96,11 +98,14 @@ async def get_history(firebase_uid: str, db: Session = Depends(get_db)):
     result = []
     for h in history:
         news = h.news
+        if not news:
+            continue
         result.append({
             "id": news.id,
             "title": news.title,
             "source": news.raw_news.source_name if news.raw_news else "Unknown",
-            "read_at": h.read_at.isoformat()
+            "read_at": h.read_at.isoformat(),
+            "url": news.raw_news.url if news.raw_news else "#"
         })
     return result
 
