@@ -63,3 +63,21 @@ class NotificationManager:
                 NotificationManager.send_email(user.email, f"AI News: {category}", f"{news_title}\nRead more: {news_url}")
             if user.phone:
                 NotificationManager.send_sms(user.phone, f"AI News [{category}]: {news_title}. {news_url}")
+    @staticmethod
+    def send_daily_brief(db: Session, brief_list: List[dict]):
+        """Send the 60-second brief to all users."""
+        if not brief_list:
+            return
+
+        body = "\n".join([f"• {b['title']}" for b in brief_list[:5]])
+        users = db.query(User).filter(User.push_token != None).all()
+        push_tokens = [u.push_token for u in users]
+
+        if push_tokens:
+            NotificationManager.send_push_notification(
+                tokens=push_tokens,
+                title="⭐ Today's 60-Second Brief",
+                body=body,
+                data={"type": "brief"}
+            )
+            logger.info("Daily brief sent to subscribers.")

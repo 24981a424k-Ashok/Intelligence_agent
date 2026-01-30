@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Saved Items - Universal News Intelligence</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@300;400;600;800&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css?v=2.3">
+    <style>
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--accent-blue);
+            font-weight: 600;
+            margin-bottom: 2rem;
+            cursor: pointer;
+        }
+
+        .saved-item {
+            background: var(--bg-surface);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.3s;
+        }
+
+        .saved-item:hover {
+            border-color: var(--accent-blue);
+            transform: translateX(10px);
+        }
+
+        .saved-info h3 {
+            margin: 0 0 0.5rem;
+            font-size: 1.2rem;
+        }
+
+        .saved-meta {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 4rem;
+            opacity: 0.6;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <div class="logo">Universal News Intelligence</div>
+            <div id="auth-section" class="profile-container">
+                <div id="user-info" class="user-profile-widget">
+                    <div class="profile-left">
+                        <div class="avatar-wrapper" id="avatar-container">
+                            <img id="user-avatar-img" src="https://ui-avatars.com/api/?background=random" alt="User">
+                            <div class="status-badge"></div>
+                        </div>
+                        <div class="user-meta">
+                            <span id="user-display">Loading...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <a onclick="history.back()" class="back-link">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M19 12H5M12 19l-7-7 7-7" />
+            </svg>
+            Back to Dashboard
+        </a>
+
+        <section>
+            <h2 class="section-title">⭐ Saved for Later</h2>
+            <div id="saved-list">
+                <div class="empty-state">Loading your saved items...</div>
+            </div>
+        </section>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script>
+        const firebaseConfig = {
+            apiKey: "{{ firebase_config.apiKey }}",
+            authDomain: "{{ firebase_config.authDomain }}",
+            projectId: "{{ firebase_config.projectId }}",
+            storageBucket: "{{ firebase_config.storageBucket }}",
+            messagingSenderId: "{{ firebase_config.messagingSenderId }}",
+            appId: "{{ firebase_config.appId }}"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+
+        auth.onAuthStateChanged(async user => {
+            if (user) {
+                const displayName = user.displayName || user.email || "User";
+                document.getElementById('user-display').innerText = displayName.split('@')[0];
+                if (user.photoURL) document.getElementById('user-avatar-img').src = user.photoURL;
+
+                fetchSavedItems(user.uid);
+            } else {
+                window.location.href = '/';
+            }
+        });
+
+        async function fetchSavedItems(uid) {
+            try {
+                const response = await fetch(`/api/retention/saved/${uid}`);
+                const data = await response.json();
+                renderSavedItems(data);
+            } catch (e) {
+                console.error(e);
+                document.getElementById('saved-list').innerHTML = '<div class="empty-state">Error loading items.</div>';
+            }
+        }
+
+        function renderSavedItems(items) {
+            const list = document.getElementById('saved-list');
+            if (items.length === 0) {
+                list.innerHTML = '<div class="empty-state">No saved items yet. Start exploring!</div>';
+                return;
+            }
+
+            list.innerHTML = items.map(item => `
+                <div class="saved-item">
+                    <div class="saved-info">
+                        <a href="${item.url}" target="_blank"><h3>${item.title}</h3></a>
+                        <div class="saved-meta">
+                            <span>Source: ${item.source}</span> • 
+                            <span>Saved on ${new Date(item.saved_at).toLocaleDateString()}</span>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+    </script>
+</body>
+
+</html>

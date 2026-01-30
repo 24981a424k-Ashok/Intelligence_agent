@@ -57,6 +57,32 @@ async def archive(request: Request, db: Session = Depends(get_db)):
     topic_list = db.query(DailyDigest).order_by(DailyDigest.date.desc()).limit(10).all()
     return templates.TemplateResponse("archive.html", {"request": request, "digests": topic_list})
 
+@router.get("/saved")
+async def saved_items_page(request: Request):
+    from src.config import settings
+    firebase_config = {
+        "apiKey": settings.FIREBASE_API_KEY,
+        "authDomain": settings.FIREBASE_AUTH_DOMAIN,
+        "projectId": settings.FIREBASE_PROJECT_ID,
+        "storageBucket": settings.FIREBASE_STORAGE_BUCKET,
+        "messagingSenderId": settings.FIREBASE_MESSAGING_SENDER_ID,
+        "appId": settings.FIREBASE_APP_ID
+    }
+    return templates.TemplateResponse("saved.html", {"request": request, "firebase_config": firebase_config})
+
+@router.get("/history")
+async def history_page(request: Request):
+    from src.config import settings
+    firebase_config = {
+        "apiKey": settings.FIREBASE_API_KEY,
+        "authDomain": settings.FIREBASE_AUTH_DOMAIN,
+        "projectId": settings.FIREBASE_PROJECT_ID,
+        "storageBucket": settings.FIREBASE_STORAGE_BUCKET,
+        "messagingSenderId": settings.FIREBASE_MESSAGING_SENDER_ID,
+        "appId": settings.FIREBASE_APP_ID
+    }
+    return templates.TemplateResponse("history.html", {"request": request, "firebase_config": firebase_config})
+
 class ChatRequest(BaseModel):
     message: str
 

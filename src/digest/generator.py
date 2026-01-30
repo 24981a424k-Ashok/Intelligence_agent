@@ -111,6 +111,12 @@ class DigestGenerator:
                     "category": n.category or "General"
                 } for n in top_10
             ],
+            "brief": [
+                {
+                    "id": n.id,
+                    "title": n.title
+                } for n in sorted_news[:5]
+            ],
             "categories": categories,
             "insight": "Daily insight goes here...", # LLM generation needed normally
             "generated_at": datetime.utcnow().isoformat()

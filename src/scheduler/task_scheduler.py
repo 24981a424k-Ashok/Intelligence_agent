@@ -111,7 +111,12 @@ def run_news_cycle():
         # 5. Deliver
         logger.info("Step 5: Delivery - sending notifications...")
         from src.delivery.notifications import NotificationManager
-        # Notify for top stories in the digest
+        
+        # 5a. Send Daily Brief
+        if digest and "brief" in digest:
+            NotificationManager.send_daily_brief(db, digest["brief"])
+
+        # 5b. Notify for top stories in the digest
         if digest and "top_stories" in digest:
              for story in digest["top_stories"][:2]: # Notify top 2 for brevity
                  NotificationManager.notify_subscribers(db, story.get("category", "General"), story["title"], story["url"])
@@ -127,11 +132,11 @@ def start_scheduler():
     # Parse time "06:00"
     hour, minute = map(int, SCHEDULE_TIME.split(":"))
     
-    # Run every 5 minutes (Frequent Update Cycle)
+    # Run every 2 minutes (Frequent Update Cycle)
     from datetime import datetime, timedelta
-    # Run immediately (after 10s buffer) + every 5 minutes
+    # Run immediately (after 10s buffer) + every 2 minutes
     run_date = datetime.now() + timedelta(seconds=10)
-    scheduler.add_job(run_news_cycle, 'interval', minutes=5, next_run_time=run_date)
+    scheduler.add_job(run_news_cycle, 'interval', minutes=2, next_run_time=run_date)
     
     # Daily Newspaper Update at 6:30 AM IST
     scheduler.add_job(

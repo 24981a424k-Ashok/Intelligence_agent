@@ -5,19 +5,28 @@ from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
 
-try:
-    from sentence_transformers import SentenceTransformer, util
-    HAS_SBERT = True
-except Exception as e:
-    # Catching generic exception because some versions raise ValueError regarding tf-keras
-    # or other dependency issues during import
-    # logger.warning(f"SBERT import failed: {e}") # Logger might not be configured yet at top level
-    HAS_SBERT = False
-
 from src.database.models import RawNews, VerifiedNews
 from src.config.settings import MIN_CREDIBILITY_SCORE
 
 logger = logging.getLogger(__name__)
+
+# Global flag to avoid repeated failed import attempts
+_SBERT_INITIALIZED = False
+_HAS_SBERT = False
+
+def _check_sbert():
+    global _SBERT_INITIALIZED, _HAS_SBERT
+    if _SBERT_INITIALIZED:
+        return _HAS_SBERT
+    
+    try:
+        import sentence_transformers
+        _HAS_SBERT = True
+    except Exception:
+        _HAS_SBERT = False
+    
+    _SBERT_INITIALIZED = True
+    return _HAS_SBERT
 
 class VerificationEngine:
     def __init__(self, use_strict_mode: bool = False):
@@ -37,14 +46,15 @@ class VerificationEngine:
         }
         
         self.model = None
-        if HAS_SBERT:
+        if _check_sbert():
             try:
+                from sentence_transformers import SentenceTransformer
                 # Load a lightweight model
-                logger.info("Loading SentenceTransformer model for deduplication...")
+                logger.info("Initializing Intelligence Engine (SentenceTransformer)... this may take a moment.")
                 self.model = SentenceTransformer('all-MiniLM-L6-v2') 
-                logger.info("Model loaded.")
+                logger.info("Intelligence Engine active.")
             except Exception as e:
-                logger.error(f"Failed to load SentenceTransformer: {e}")
+                logger.error(f"Failed to load Intelligence Engine: {e}")
                 self.model = None
 
     def verify_batch(self, session: Session, article_ids: List[int]) -> int:
@@ -100,19 +110,22 @@ class VerificationEngine:
 
             # B. Semantic Similarity
             if not is_dupe and self.model and existing_embeddings is not None and len(existing_embeddings) > 0:
-                text_to_check = article.title + " " + (article.content[:200] if article.content else "")
-                new_emb = self.model.encode(text_to_check, convert_to_tensor=True)
-                
-                # Compute cosine similarities
-                cosine_scores = util.cos_sim(new_emb, existing_embeddings)
-                
-                # Find best match
-                # torch.max returns (value, index)
-                best_score = cosine_scores.max().item()
-                
-                if best_score > 0.85: # Threshold for "same story"
-                    is_dupe = True
-                    logger.info(f"Duplicate found (Semantic {best_score:.2f}): {article.title}")
+                try:
+                    from sentence_transformers import util
+                    text_to_check = article.title + " " + (article.content[:200] if article.content else "")
+                    new_emb = self.model.encode(text_to_check, convert_to_tensor=True)
+                    
+                    # Compute cosine similarities
+                    cosine_scores = util.cos_sim(new_emb, existing_embeddings)
+                    
+                    # Find best match
+                    best_score = cosine_scores.max().item()
+                    
+                    if best_score > 0.85: # Threshold for "same story"
+                        is_dupe = True
+                        logger.info(f"Duplicate found (Semantic {best_score:.2f}): {article.title}")
+                except Exception as e:
+                    logger.warning(f"Semantic deduplication failed: {e}")
 
             if is_dupe:
                 article.processed = True

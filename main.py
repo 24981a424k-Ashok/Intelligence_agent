@@ -10,6 +10,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from fastapi.responses import FileResponse
 from loguru import logger
 
 from src.config import settings
@@ -64,9 +65,9 @@ app.mount("/static", StaticFiles(directory="web/static"), name="static")
 app.include_router(retention_router, prefix="/api/retention")
 app.include_router(dashboard_router)
 
-@app.get("/favicon.ico")
+@app.get("/favicon.ico", include_in_schema=False)
 async def favicon():
-    return Response(status_code=204)
+    return FileResponse("web/static/favicon.png")
 
 @app.api_route("/api/{path_name:path}", methods=["GET", "POST", "PUT", "DELETE"])
 async def debug_api_requests(path_name: str, request: Request):
