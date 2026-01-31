@@ -28,6 +28,9 @@ def _check_sbert():
     _SBERT_INITIALIZED = True
     return _HAS_SBERT
 
+# Global cache for the transformer model to avoid redundant loading
+_CACHED_MODEL = None
+
 class VerificationEngine:
     def __init__(self, use_strict_mode: bool = False):
         self.use_strict_mode = use_strict_mode
@@ -45,13 +48,16 @@ class VerificationEngine:
             "generic": 0.5
         }
         
-        self.model = None
-        if _check_sbert():
+        global _CACHED_MODEL
+        self.model = _CACHED_MODEL
+        
+        if self.model is None and _check_sbert():
             try:
                 from sentence_transformers import SentenceTransformer
                 # Load a lightweight model
                 logger.info("Initializing Intelligence Engine (SentenceTransformer)... this may take a moment.")
-                self.model = SentenceTransformer('all-MiniLM-L6-v2') 
+                _CACHED_MODEL = SentenceTransformer('all-MiniLM-L6-v2') 
+                self.model = _CACHED_MODEL
                 logger.info("Intelligence Engine active.")
             except Exception as e:
                 logger.error(f"Failed to load Intelligence Engine: {e}")

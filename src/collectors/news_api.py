@@ -34,21 +34,13 @@ class NewsCollector:
             # For this agent, we might want 'everything' for breadth or 'top-headlines' for quality
             # Let's start with top headlines for major categories
             
-            categories_list = ['business', 'technology', 'science', 'health']
-            all_articles = []
-            
-            for cat in categories_list:
-                response = self.client.get_top_headlines(
-                    category=cat,
-                    language='en',
-                    page_size=100
-                )
-                if response['status'] == 'ok':
-                    articles = response.get('articles', [])
-                    # Tag them with category for initial filtering context (optional)
-                    for a in articles:
-                        a['_initial_category'] = cat
-                    all_articles.extend(articles)
+            # Fetch all top headlines in one call to save quota (100 articles)
+            response = self.client.get_top_headlines(
+                language='en',
+                page_size=100
+            )
+            if response['status'] == 'ok':
+                all_articles = response.get('articles', [])
             
             # Also fetch general tech/AI specific via 'everything' endpoint if needed
             # But let's stick to headlines to save API calls for now

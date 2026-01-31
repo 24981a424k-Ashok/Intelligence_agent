@@ -1,7 +1,8 @@
 import os
 import json
 import logging
-from typing import Dict, Any
+import asyncio
+from typing import List, Dict, Any
 import openai
 from src.config.settings import OPENAI_API_KEY
 
@@ -16,59 +17,91 @@ class LLMAnalyzer:
         else:
             self.client = openai.OpenAI(api_key=self.api_key)
 
+    async def analyze_batch(self, articles: List[Dict[str, str]]) -> List[Dict[str, Any]]:
+        """
+        Analyze multiple articles in parallel.
+        """
+        if not self.client:
+            return [self._mock_analysis(a["title"]) for a in articles]
+
+        # Use AsyncOpenAI client for parallel calls
+        from openai import AsyncOpenAI
+        async_client = AsyncOpenAI(api_key=self.api_key)
+
+        async def _analyze_single(article):
+            title = article["title"]
+            content = article.get("content", "")
+            prompt = f"""
+            Analyze the following news article:
+            Title: {title}
+            Content: {content[:2000]}
+
+            Provide the output in valid JSON format with the following keys:
+            - "summary_bullets": [array of 3-5 strings]
+            - "category": "one of the 14 mandatory categories"
+            - "impact_score": integer 1-10
+            - "why_it_matters": "string"
+            - "who_is_affected": "string"
+            - "short_term_impact": "string"
+            - "long_term_impact": "string"
+            - "sentiment": "Positive/Negative/Neutral"
+            - "certainty_flag": "High/Medium/Low"
+            """
+            try:
+                response = await async_client.chat.completions.create(
+                    model="gpt-3.5-turbo",
+                    messages=[
+                        {"role": "system", "content": "You are an expert news analyst. Output ONLY JSON."},
+                        {"role": "user", "content": prompt}
+                    ],
+                    temperature=0.3
+                )
+                raw_content = response.choices[0].message.content
+                if "```json" in raw_content:
+                    raw_content = raw_content.split("```json")[1].split("```")[0].strip()
+                elif "```" in raw_content:
+                    raw_content = raw_content.split("```")[1].strip()
+                
+                result = json.loads(raw_content)
+                result["title"] = title # Keep track for mapping back
+                return result
+            except Exception as e:
+                logger.error(f"LLM Analysis failed for '{title}': {e}")
+                return self._mock_analysis(title)
+
+        results = await asyncio.gather(*[_analyze_single(a) for a in articles])
+        return results
+
     def analyze_article(self, title: str, content: str) -> Dict[str, Any]:
         """
-        Analyze an article to extract structured intelligence.
+        Analyze a single article to extract structured intelligence.
+        (Sync wrapper for compatibility)
         """
         if not self.client:
             return self._mock_analysis(title)
-
+            
+        # Re-using the same logic but sync
         prompt = f"""
         Analyze the following news article:
         Title: {title}
-        Content: {content[:2000]} # Truncate to avoid huge context
+        Content: {content[:2000]}
 
-        Provide the output in valid JSON format with the following keys:
-        - "summary_bullets": [array of 3-5 strings, bullet points, 15-25 words each]
-        - "category": "one of the 14 mandatory categories"
-        - "impact_score": integer 1-10
-        - "why_it_matters": "string explaining impact"
-        - "who_is_affected": "stakeholders affected"
-        - "short_term_impact": "immediate consequences"
-        - "long_term_impact": "broader effects"
-        - "sentiment": "Positive/Negative/Neutral"
-        - "certainty_flag": "High/Medium/Low based on source clarity"
-
-        CRITICAL SAFETY RULES:
-        1. NEVER claim absolute accuracy.
-        2. NO hallucinated facts. If information is missing, state "Data not provided".
-        3. If information is uncertain or evolving, use "Evolving" or "Uncertain" in impacts.
+        Provide the output in valid JSON format with keys: summary_bullets, category, impact_score, why_it_matters, who_is_affected, short_term_impact, long_term_impact, sentiment, certainty_flag.
         """
-
         try:
             response = self.client.chat.completions.create(
-                model="gpt-3.5-turbo", # Use 4 for better quality if affordable
+                model="gpt-3.5-turbo",
                 messages=[
                     {"role": "system", "content": "You are an expert news analyst. Output ONLY JSON."},
                     {"role": "user", "content": prompt}
                 ],
                 temperature=0.3
             )
-            
             raw_content = response.choices[0].message.content
-            # Clean up potential markdown code blocks
             if "```json" in raw_content:
                 raw_content = raw_content.split("```json")[1].split("```")[0].strip()
-            elif "```" in raw_content:
-                raw_content = raw_content.split("```")[1].strip()
-                
             return json.loads(raw_content)
-
-        except Exception as e:
-            if "insufficient_quota" in str(e) or (hasattr(e, 'code') and e.code == 'insufficient_quota'):
-                logger.error("OpenAI Quota Exceeded! Switching to mock analysis for this cycle. Please check your billing/plan.")
-            else:
-                logger.error(f"LLM Analysis failed: {e}")
+        except Exception:
             return self._mock_analysis(title)
 
     def _mock_analysis(self, title: str) -> Dict[str, Any]:

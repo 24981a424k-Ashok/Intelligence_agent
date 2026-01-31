@@ -62,7 +62,8 @@
     <div class="container">
         <header>
             <div class="logo">Universal News Intelligence</div>
-            <div class="date">📅 {{ date }} • 5-Minute Update Cycle</div>
+            <div class="date">📅 {{ date }} • 15-Minute Update Cycle {% if digest.generated_at %}• Last Updated: {{
+                digest.generated_at[11:16] }} UTC{% endif %}</div>
             <div id="auth-section" class="profile-container">
                 <button id="login-btn" class="btn-premium">Login</button>
                 <div id="user-info" class="user-profile-widget" style="display: none;">
@@ -620,17 +621,34 @@
         const userDisplay = document.getElementById('user-display');
 
         // Multi-provider login
-        loginBtn.onclick = () => {
-            const provider = new firebase.auth.GoogleAuthProvider(); // Example: Google
-            // You can add Microsoft (OAuthProvider('microsoft.com')), LinkedIn, etc.
-            auth.signInWithPopup(provider).then(async (result) => {
+        let isLoggingIn = false;
+        loginBtn.onclick = async (e) => {
+            if (isLoggingIn) return;
+            isLoggingIn = true;
+            const originalText = loginBtn.innerText;
+            loginBtn.innerText = 'Signing in...';
+            loginBtn.style.opacity = '0.5';
+            loginBtn.disabled = true;
+
+            const provider = new firebase.auth.GoogleAuthProvider();
+            try {
+                const result = await auth.signInWithPopup(provider);
                 const idToken = await result.user.getIdToken();
                 await fetch('/api/login', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ id_token: idToken })
                 });
-            }).catch(e => console.error(e));
+            } catch (e) {
+                if (e.code !== 'auth/cancelled-popup-request' && e.code !== 'auth/popup-closed-by-user') {
+                    console.error("Login failed", e);
+                }
+            } finally {
+                isLoggingIn = false;
+                loginBtn.innerText = originalText;
+                loginBtn.style.opacity = '1';
+                loginBtn.disabled = false;
+            }
         };
 
         logoutBtn.onclick = () => {

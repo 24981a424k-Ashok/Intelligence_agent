@@ -315,12 +315,29 @@
         };
 
         // Google Login
-        document.getElementById('google-login').onclick = async () => {
+        let isLoggingIn = false;
+        document.getElementById('google-login').onclick = async (e) => {
+            if (isLoggingIn) return;
+            isLoggingIn = true;
+            const btn = e.currentTarget;
+            const originalText = btn.innerHTML;
+            btn.innerHTML = 'Signing in...';
+            btn.style.opacity = '0.5';
+            btn.style.cursor = 'not-allowed';
+
             try {
                 const result = await auth.signInWithPopup(new firebase.auth.GoogleAuthProvider());
                 await sendTokenToServer(result.user);
             } catch (e) {
-                alert('Google login failed: ' + e.message);
+                if (e.code !== 'auth/cancelled-popup-request' && e.code !== 'auth/popup-closed-by-user') {
+                    alert('Google login failed: ' + e.message);
+                }
+                console.error(e);
+            } finally {
+                isLoggingIn = false;
+                btn.innerHTML = originalText;
+                btn.style.opacity = '1';
+                btn.style.cursor = 'pointer';
             }
         };
 

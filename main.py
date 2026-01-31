@@ -84,7 +84,8 @@ def main():
         if command == "run-once":
             logger.info("Running manual news cycle...")
             from src.scheduler.task_scheduler import run_news_cycle
-            run_news_cycle()
+            import asyncio
+            asyncio.run(run_news_cycle())
         elif command == "init-db":
              from src.utils.init_db import init_db
              init_db()

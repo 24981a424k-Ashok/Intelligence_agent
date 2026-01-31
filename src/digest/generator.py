@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 class DigestGenerator:
     def __init__(self):
         pass
-
+    def create_daily_digest(self, session: Session) -> Dict[str, Any]:
         # Get the 100 most recent verified articles for better variety
         recent_news = session.query(VerifiedNews).order_by(VerifiedNews.created_at.desc()).limit(100).all()
         
