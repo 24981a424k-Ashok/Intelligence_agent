@@ -237,140 +237,25 @@
             </div>
 
             <div class="trending-grid">
-                <!-- Data now dynamically expands to 10 items as requested -->
-                <div class="trending-card">
-                    <div class="trending-badge breaking">BREAKING</div>
-                    <div class="trending-content">
-                        <h3>Major Policy Announcement on Digital Infrastructure</h3>
-                        <p>Government unveils new roadmap for expanding high-speed internet to rural areas by 2027.</p>
-                        <div class="trending-meta">
-                            <span class="platform-icon google-icon">📰</span>
-                            <span class="engagement">2.5M+ views</span>
-                            <span class="time">1 hour ago</span>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="trending-card">
-                    <div class="trending-badge viral">VIRAL</div>
-                    <div class="trending-content">
-                        <h3>Indian Market Sees Record Growth in Tech Sector</h3>
-                        <p>Tech stocks surge as quarterly earnings exceed expectations across major IT firms.</p>
-                        <div class="trending-meta">
-                            <span class="platform-icon google-icon">📰</span>
-                            <span class="engagement">1.8M+ reads</span>
-                            <span class="time">3 hours ago</span>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="trending-card">
+                {% if digest.trending_news %}
+                {% for item in digest.trending_news %}
+                <div class="trending-card" id="trending-{{ item.id }}" onclick="trackRead('{{ item.id }}')">
                     <div class="trending-badge trending">TRENDING</div>
                     <div class="trending-content">
-                        <h3>The Future of Renewable Energy in India</h3>
-                        <p>Thousands of users on Reddit discuss the rapid shift towards solar power and its impact on
-                            the grid.</p>
-                        <div class="trending-meta">
-                            <span class="platform-icon reddit-icon">🔴</span>
-                            <span class="engagement">850K+ upvotes</span>
-                            <span class="time">4 hours ago</span>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="trending-card">
-                    <div class="trending-badge breaking">BREAKING</div>
-                    <div class="trending-content">
-                        <h3>New High-Speed Rail Corridor Approved for South India</h3>
-                        <p>The Ministry of Railways has greenlit a new high-speed rail project connecting major hubs.
-                        </p>
+                        <h3>{{ item.title }}</h3>
+                        <p>{{ item.summary }}</p>
                         <div class="trending-meta">
                             <span class="platform-icon google-icon">📰</span>
-                            <span class="engagement">1.2M+ views</span>
-                            <span class="time">6 hours ago</span>
+                            <span class="engagement">{{ item.source_name }}</span>
+                            <span class="engagement">• {{ item.engagement }}</span>
+                            <span class="time">{{ item.time_ago }}</span>
                         </div>
                     </div>
                 </div>
-
-                <div class="trending-card">
-                    <div class="trending-badge trending">TRENDING</div>
-                    <div class="trending-content">
-                        <h3>Advancements in Indigenous Space Tech</h3>
-                        <p>ISRO successfully tests new propulsion system for upcoming heavy-lift missions.</p>
-                        <div class="trending-meta">
-                            <span class="platform-icon google-icon">📰</span>
-                            <span class="engagement">900K+ views</span>
-                            <span class="time">7 hours ago</span>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="trending-card">
-                    <div class="trending-badge viral">VIRAL</div>
-                    <div class="trending-content">
-                        <h3>Education Reform: Skill-Based Learning Takes Center Stage</h3>
-                        <p>New curriculum focus aims to bridge the gap between academia and industry requirements.</p>
-                        <div class="trending-meta">
-                            <span class="platform-icon google-icon">📰</span>
-                            <span class="engagement">750K+ reads</span>
-                            <span class="time">9 hours ago</span>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="trending-card">
-                    <div class="trending-badge trending">TRENDING</div>
-                    <div class="trending-content">
-                        <h3>Healthcare Expansion: 50 New Specialty Hospitals Announced</h3>
-                        <p>A major healthcare initiative will see the construction of specialty hospitals in Tier 2
-                            cities.</p>
-                        <div class="trending-meta">
-                            <span class="platform-icon google-icon">📰</span>
-                            <span class="engagement">1.4M+ views</span>
-                            <span class="time">10 hours ago</span>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="trending-card">
-                    <div class="trending-badge viral">VIRAL</div>
-                    <div class="trending-content">
-                        <h3>Local Hero Rescues Stranded Animals During Floods</h3>
-                        <p>A heartwarming story from Kerala goes viral, inspiring thousands to contribute to animal
-                            welfare.</p>
-                        <div class="trending-meta">
-                            <span class="platform-icon reddit-icon">🔴</span>
-                            <span class="engagement">400K+ upvotes</span>
-                            <span class="time">12 hours ago</span>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="trending-card">
-                    <div class="trending-badge trending">TRENDING</div>
-                    <div class="trending-content">
-                        <h3>Agriculture Tech: AI-Driven Irrigation Systems for Farmers</h3>
-                        <p>Startups are launching low-cost AI solutions to help farmers optimize water usage.</p>
-                        <div class="trending-meta">
-                            <span class="platform-icon google-icon">📰</span>
-                            <span class="engagement">500K+ views</span>
-                            <span class="time">14 hours ago</span>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="trending-card">
-                    <div class="trending-badge viral">VIRAL</div>
-                    <div class="trending-content">
-                        <h3>India Clinches Gold in International Fencing Championship</h3>
-                        <p>Unexpected victory in fencing brings national pride and focus on niche sports.</p>
-                        <div class="trending-meta">
-                            <span class="platform-icon google-icon">📰</span>
-                            <span class="engagement">2M+ views</span>
-                            <span class="time">15 hours ago</span>
-                        </div>
-                    </div>
-                </div>
+                {% endfor %}
+                {% else %}
+                <div class="empty-state">No trending news currently available.</div>
+                {% endif %}
             </div>
 
             <div class="trending-note">
