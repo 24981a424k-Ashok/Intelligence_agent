@@ -51,12 +51,12 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="AI News Intelligence Agent", lifespan=lifespan)
 
-# Firebase Functions Export
-try:
-    from firebase_functions import https_fn
-    api = https_fn.on_request(app)
-except ImportError:
-    pass
+# Firebase Functions Export - Disabled as it conflicts with generic ASGI/Docker deployment
+# try:
+#     from firebase_functions import https_fn
+#     api = https_fn.on_request(app)
+# except ImportError:
+#     pass
 
 # Mount static files
 app.mount("/static", StaticFiles(directory="web/static"), name="static")
