@@ -85,6 +85,7 @@ class DigestGenerator:
                 "image_url": news.raw_news.url_to_image if news.raw_news and news.raw_news.url_to_image else None,
                 "summary": news.summary_bullets,
                 "why": news.why_it_matters,
+                "affected": news.who_is_affected or "General Public",
                 "tags": news.impact_tags,
                 "bias": news.bias_rating
             })
