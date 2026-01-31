@@ -63,6 +63,8 @@ header {
     padding: 2.5rem 0 4rem;
     border-bottom: 1px solid var(--glass-border);
     margin-bottom: 3rem;
+    position: relative;
+    z-index: 1000;
 }
 
 .logo {
@@ -222,7 +224,7 @@ header {
     display: none;
     flex-direction: column;
     overflow: hidden;
-    z-index: 2000;
+    z-index: 9999;
     backdrop-filter: blur(25px);
     opacity: 0;
     transform: translateY(10px);
