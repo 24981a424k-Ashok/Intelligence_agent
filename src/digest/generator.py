@@ -15,20 +15,34 @@ class DigestGenerator:
         """
         Gather verified news from the last 24h, rank them, and create a digest structure.
         """
-        # Get start of today (or last 24h window)
-        # simplistic: just take all unprocessed verified news or news from last 24h
-        
-        # In a real app, we'd filter by 'created_at' > 24 hours ago
-        recent_news = session.query(VerifiedNews).limit(50).all() # limit for prototype
+        # Get the 50 most recent verified articles
+        recent_news = session.query(VerifiedNews).order_by(VerifiedNews.created_at.desc()).limit(50).all()
         
         if not recent_news:
             logger.info("No news found for digest.")
             return {}
 
-        # Sort by impact score (desc) & credibility
+        # Dynamic Ranking Logic: Impact + Credibility + Freshness Boost
+        def calculate_rank_score(news_item):
+            base_score = (news_item.impact_score or 0) * 0.7 + (news_item.credibility_score or 0) * 3
+            
+            # Freshness Boost: bonus points for articles published recently
+            now = datetime.utcnow()
+            if news_item.published_at:
+                age_hours = (now - news_item.published_at).total_seconds() / 3600
+                if age_hours < 2:
+                    base_score += 5 # Massive boost for breaking news (last 2h)
+                elif age_hours < 6:
+                    base_score += 3 # Significant boost (last 6h)
+                elif age_hours < 12:
+                    base_score += 1.5 # Moderate boost (last 12h)
+            
+            return base_score
+
+        # Sort by the new weighted rank score
         sorted_news = sorted(
             recent_news, 
-            key=lambda x: (x.impact_score or 0, x.credibility_score or 0), 
+            key=calculate_rank_score, 
             reverse=True
         )
 
