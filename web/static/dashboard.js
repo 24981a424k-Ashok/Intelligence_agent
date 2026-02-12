@@ -4,8 +4,16 @@
  */
 
 // ===== IMAGE FALLBACK HELPER =====
-// ===== IMAGE FALLBACK HELPER =====
-// ===== IMAGE FALLBACK HELPER =====
+window.handleImageError = function (img, category, seed, index) {
+    if (img.dataset.hasError) return;
+    img.dataset.hasError = "true";
+    img.style.display = 'none';
+    const fallback = getCategoryFallback(category, seed, parseInt(index));
+    if (img.parentElement) {
+        img.parentElement.style.backgroundImage = `url('${fallback}')`;
+    }
+};
+
 function getCategoryFallback(category, seed = '', index = 0) {
     const images = {
         'business': [

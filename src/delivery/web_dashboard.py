@@ -13,6 +13,26 @@ chat_engine = NewsChatEngine()
 router = APIRouter()
 templates = Jinja2Templates(directory="web/templates")
 
+# Fallback Image Pool (Matches frontend logic for consistency)
+FALLBACK_IMAGES = [
+    'https://images.unsplash.com/photo-1504711434969-e33886168f5c?auto=format&fit=crop&w=800&q=80',
+    'https://images.unsplash.com/photo-1495020689067-958852a7765e?auto=format&fit=crop&w=800&q=80',
+    'https://images.unsplash.com/photo-1503694967365-bb8956c5b056?auto=format&fit=crop&w=800&q=80',
+    'https://images.unsplash.com/photo-1476480862126-209bfaa8edc8?auto=format&fit=crop&w=800&q=80',
+    'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=800&q=80',
+    'https://images.unsplash.com/photo-1526304640581-d334cdbbf45e?auto=format&fit=crop&w=800&q=80',
+    'https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&w=800&q=80',
+    'https://images.unsplash.com/photo-1504198266287-1659872e6590?auto=format&fit=crop&w=800&q=80',
+    'https://images.unsplash.com/photo-1521295121783-8a321d551ad2?auto=format&fit=crop&w=800&q=80',
+    'https://images.unsplash.com/photo-1529107386315-e1a2ed48a620?auto=format&fit=crop&w=800&q=80'
+]
+
+def get_fallback_image(seed: str) -> str:
+    """Deterministically select a fallback image based on string hash"""
+    if not seed: return FALLBACK_IMAGES[0]
+    hash_val = sum(ord(c) for c in seed)
+    return FALLBACK_IMAGES[hash_val % len(FALLBACK_IMAGES)]
+
 def get_db():
     db = SessionLocal()
     try:
@@ -51,6 +71,18 @@ async def dashboard(request: Request, category: str = None, db: Session = Depend
     }
 
     digest_data = latest_digest.content_json if latest_digest else None
+    
+    # Inject Fallback Images Server-Side for Initial Render
+    if digest_data:
+        if "breaking_news" in digest_data:
+            for item in digest_data["breaking_news"]:
+                if not item.get("image_url"):
+                    item["image_url"] = get_fallback_image(item.get("headline") or item.get("title") or "news")
+        
+        if "top_stories" in digest_data:
+            for item in digest_data["top_stories"]:
+                if not item.get("image_url"):
+                    item["image_url"] = get_fallback_image(item.get("title") or "news")
     
     # Filter by Category if requested
     selected_category = category
@@ -206,6 +238,11 @@ async def get_breaking_news(db: Session = Depends(get_db)):
     breaking_news = []
     if latest_digest and "breaking_news" in latest_digest.content_json:
         breaking_news = latest_digest.content_json["breaking_news"]
+        
+        # Inject Fallback Images Server-Side
+        for item in breaking_news:
+            if not item.get("image_url"):
+                item["image_url"] = get_fallback_image(item.get("headline") or item.get("title") or "news")
     
     return {"breaking_news": breaking_news}
 
