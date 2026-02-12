@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="refresh" content="900">
+    <title>Universal News Intelligence</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@300;400;600;800&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css?v=4.2">
+
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging-compat.js"></script>
+</head>
+
+<body>
+
+    <!-- 1. GLOBAL INFO BAR -->
+    <div class="global-info-bar">
+        <div class="info-left">
+            UNIVERSAL NEWS INTELLIGENCE
+        </div>
+        <div class="info-right">
+            <div class="info-item">
+                <span>📅 {{ date or '2026-02-11' }}</span>
+            </div>
+            <div class="info-item">
+                <span>⚡ 15-Minute Update Cycle</span>
+            </div>
+            {% if digest and digest.generated_at %}
+            <div class="info-item">
+                <span style="opacity:0.7">Last Updated: {{ digest.generated_at[11:16] }} UTC</span>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- 2. NAVIGATION BAR -->
+    <header>
+        <div class="logo">
+            UNI AP
+        </div>
+
+        <!-- 3. MOBILE MENU BUTTON -->
+        <button class="mobile-menu-btn" id="mobile-menu-btn">
+            <span></span>
+            <span></span>
+            <span></span>
+        </button>
+
+        <nav class="nav-center" style="align-items: center;">
+            <a href="/dashboard" class="nav-link">Home</a>
+            <div class="nav-item">
+                Category
+                <div class="dropdown-menu">
+                    <a href="/dashboard?category=sports" class="dropdown-link">Sports</a>
+                    <a href="/dashboard?category=politics" class="dropdown-link">Politics</a>
+                    <a href="/dashboard?category=business" class="dropdown-link">Business</a>
+                    <a href="/dashboard?category=technology" class="dropdown-link">Technology</a>
+                    <a href="/dashboard?category=ai" class="dropdown-link">AI</a>
+                    <a href="/dashboard?category=world" class="dropdown-link">World</a>
+                    <a href="/dashboard?category=india" class="dropdown-link">India</a>
+                    <a href="/dashboard?category=science" class="dropdown-link">Science</a>
+                    <a href="/dashboard?category=entertainment" class="dropdown-link">Entertainment</a>
+                </div>
+            </div>
+            <a href="/saved" class="nav-link">Saved</a>
+            <a href="/mock-test" class="nav-link">Mock Test</a>
+            <a href="/history" class="nav-link">History</a>
+            <a href="#newspaper-section" class="nav-link">Newspaper</a>
+        </nav>
+
+        <div class="profile-container" id="profile-trigger">
+            <div class="user-avatar-small">
+                <img id="user-avatar-img" src="https://ui-avatars.com/api/?background=random&color=fff&name=User"
+                    alt="User">
+            </div>
+            <div class="dropdown-menu profile-dropdown-right">
+                <a href="/history" class="dropdown-link">📖 Reading History</a>
+                <a href="/saved" class="dropdown-link">🔖 Saved Items</a>
+                <a href="/business-intelligence" class="dropdown-link">📊 Senior Analyst Reports</a>
+                <div class="dropdown-link" id="logout-btn"
+                    style="color: var(--accent-red); cursor:pointer; display:none;">🚪 Logout</div>
+                <div class="dropdown-link" id="login-btn" style="color: var(--accent-blue); cursor:pointer;">🔑 Login
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="main-content" data-category="{{ selected_category or 'top_stories' }}">
+        {% if not digest %}
+        <div style="text-align: center; margin-top: 5rem; color: var(--text-secondary);">
+            <h2>System Initializing...</h2>
+            <p>Gathering intelligence from global nodes. Please wait for the next cycle.</p>
+        </div>
+        {% else %}
+
+        <!-- 3. LIVE & TRENDING VIDEOS (Content Block 1) -->
+        <!-- Mock Data using Top Stories for validation -->
+        <!-- 3. LIVE & TRENDING VIDEOS (Content Block 1) -->
+        <!-- MERGED INTO BREAKING NEWS HERO -->
+
+
+        <!-- 4. BREAKING NEWS (Content Block 2) -->
+        <!-- 4. BREAKING NEWS (Content Block 2) -->
+        <!-- 4. BREAKING NEWS (Content Block 2) -->
+        {% if digest.breaking_news and not selected_category %}
+        <section class="breaking-container" id="breaking-news">
+            <div class="breaking-header-row">
+                <div class="breaking-label">
+                    <span style="color:var(--accent-red);">●</span> Breaking News
+                </div>
+                <span class="live-indicator"
+                    style="background:var(--accent-red); color:white; padding:4px 12px; border-radius:20px; font-size:0.75rem; font-weight:700;">
+                    LIVE UPDATES
+                </span>
+            </div>
+
+            <!-- HERO GRID: Carousel (Left) + Side Ticker (Right) -->
+            <div class="breaking-hero-grid">
+
+                <!-- 1. CAROUSEL (Items 0-6) -> 7 Items -->
+                <div class="breaking-carousel" id="main-carousel">
+                    {% for item in digest.breaking_news[:7] %}
+                    <div class="breaking-slide {% if loop.first %}active{% endif %}" data-url="{{ item.url }}"
+                        onclick="window.open(this.dataset.url, '_blank')">
+                        <!-- Fallback Logic for BG -->
+                        {% set bg_img = item.image_url %}
+                        {% set final_bg = bg_img or '/static/cyber_bg.png' %}
+                        {% set clean_headline = (item.headline or "") | replace("'", "") | replace('"', "") |
+                        replace("\\", "") %}
+
+                        <div class="breaking-slide-bg" style="background: url('{{ final_bg }}') no-repeat center/cover;"
+                            onerror="this.style.background='linear-gradient(45deg, #111, #333)'">
+                        </div>
+                        <!-- Overlay -->
+                        <div class="breaking-overlay">
+                            <div class="breaking-tag">LIVE REPORT</div>
+                            <h2>{{ item.headline or item.title }}</h2>
+                            <div class="breaking-meta">
+                                <span>{{ item.time_ago or 'Just Now' }}</span>
+                                <span>{{ item.source_name or 'Global Intel' }}</span>
+                                <span style="color:var(--accent-gold)">★ {{ item.confidence or 'Confirmed' }}</span>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+
+                <!-- 2. SIDE SLIDER (Items 7-27) -> 20 Items, Display 1 at a time -->
+                <div class="breaking-side-card" id="side-slider-container" style="padding: 0; position: relative;">
+                    <!-- Header pinned to top -->
+                    <div class="side-tag"
+                        style="position:absolute; top:1.5rem; left:1.5rem; z-index:10; background:rgba(0,0,0,0.6); padding:4px 8px; border-radius:4px;">
+                        <span style="color:var(--accent-red)">●</span> BREAKING FEED
+                    </div>
+
+                    <div class="side-slider-wrapper" style="width:100%; height:100%; position:relative;">
+                        {% for item in digest.breaking_news[7:17] %}
+                        <div class="side-slide-item {% if loop.first %}active{% endif %}"
+                            data-url="{{ item.url or '#' }}" onclick="window.open(this.dataset.url, '_blank')">
+
+                            {% set raw_title = item.headline or item.title or "Breaking" %}
+                            {% set clean_title = raw_title | replace("'", "") | replace('"', "") | replace("\\", "") %}
+                            {% set slide_bg = item.image_url or '/static/cyber_bg.png' %}
+
+                            <div class="side-img"
+                                style="height:100%; width:100%; background-image: url('{{ slide_bg }}');">
+                                <img src="{{ slide_bg }}" style="display:none;" data-seed="{{ clean_title }}"
+                                    data-index="{{ loop.index0 }}"
+                                    onerror="handleImageError(this, 'breaking', this.dataset.seed, this.dataset.index)">
+                                <!-- Gradient Overlay -->
+                                <div
+                                    style="position:absolute; bottom:0; left:0; width:100%; height:100%; background:linear-gradient(to top, #000 10%, transparent 80%);">
+                                </div>
+                            </div>
+
+                            <div class="side-content"
+                                style="position:absolute; bottom:0; left:0; width:100%; z-index:2; padding:1.5rem;">
+                                <div class="side-title"
+                                    style="font-size:1.1rem; margin-bottom:0.5rem; text-shadow:0 2px 4px rgba(0,0,0,0.8);">
+                                    {{ item.headline or item.title }}
+                                </div>
+                                <div class="side-time" style="color:#ddd; font-size:0.8rem;">
+                                    {{ item.time_ago }} • {{ item.source_name }}
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- 3. HIDDEN EXPANSION (Items 28+) -->
+            <div class="breaking-expansion-grid" id="breaking-expansion">
+                {% for item in digest.breaking_news[17:] %}
+                <div class="breaking-mini-card fade-in" data-url="{{ item.url or '#' }}"
+                    onclick="window.open(this.dataset.url, '_blank')">
+                    {% set raw_title = item.headline or item.title or "Breaking" %}
+                    {% set clean_title = raw_title | replace("'", "") | replace('"', "") | replace("\\", "") %}
+                    {% set mini_bg = item.image_url or '/static/cyber_bg.png' %}
+                    <div class="mini-img" style="background-image: url('{{ mini_bg }}');">
+                        <img src="{{ item.image_url or '' }}" style="display:none;" data-seed="{{ clean_title }}"
+                            data-index="{{ loop.index0 }}"
+                            onerror="handleImageError(this, 'breaking', this.dataset.seed, this.dataset.index)">
+                    </div>
+                    <div class="mini-content">
+                        <div class="mini-title">{{ item.headline or item.title }}</div>
+                        <div class="mini-meta">{{ item.time_ago }} • {{ item.source_name }}</div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+
+            <!-- SEE MORE BUTTON -->
+            {% if digest.breaking_news|length > 15 %}
+            <button class="see-more-btn" id="breaking-see-more" onclick="expandBreakingNews()">See More</button>
+            {% endif %}
+
+        </section>
+        {% endif %}
+
+        <!-- 5. TOP 10 HEADLINES (Content Block 3) -->
+        <section class="top-headlines" id="top-headlines">
+            <div class="section-header">
+                <h2 class="section-title">
+                    {% if selected_category %}
+                    {{ selected_category }} News
+                    {% else %}
+                    Top Headlines
+                    {% endif %}
+                </h2>
+                <span
+                    style="font-size:0.8rem; color:var(--text-secondary); text-transform: uppercase; letter-spacing: 1px;">
+                    {% if selected_category %} Curated Category Feed {% else %} Global Intelligence {% endif %}
+                </span>
+            </div>
+            <div class="headlines-grid">
+                {% for story in (digest.top_stories or []) %}
+                <div class="intel-card {% if loop.index > 6 %}hidden-item{% endif %}" data-url="{{ story.url }}"
+                    data-id="{{ story.id }}" onclick="handleCardClick(this)">
+
+                    <!-- Improved Image Logic with Random Gradient Fallback -->
+                    {% set bg_image = story.image_url %}
+                    {% if bg_image %}
+                    <div class="intel-card-image" style="background-image: url('{{ bg_image }}');"
+                        data-bg="{{ bg_image }}">
+                        {% else %}
+                        <div class="intel-card-image" style="background: linear-gradient(135deg, #1e293b, #0f172a);"
+                            data-bg="">
+                            {% endif %}
+
+                            {% set clean_title = (story.title or "") | replace("'", "") | replace('"', "") |
+                            replace("\\", "") %}
+                            {% set clean_category = (selected_category or "top_stories") | replace("'", "") |
+                            replace('"', "") %}
+                            <!-- Fallback Script for this specific card -->
+                            <img src="{{ bg_image or '#' }}" style="display:none;" data-cat="{{ clean_category }}"
+                                onerror="this.parentElement.style.backgroundImage = 'url(' + getCategoryFallback('{{ clean_category }}', '{{ clean_title }}', parseInt('{{ loop.index0 }}')) + ')'">
+
+                            <button class=" save-btn" onclick="saveArticle(event, '{{ story.id }}')">
+                                <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                                    <path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z" />
+                                </svg>
+                            </button>
+                        </div>
+
+                        <div class="intel-header">
+                            <div style="display:flex; justify-content:space-between; margin-bottom:0.5rem;">
+                                <span style="color:var(--accent-blue); font-size:0.8rem; font-weight:700;">VERIFIED: {{
+                                    story.source_name }}</span>
+                                <span style="color:var(--text-secondary); font-size:0.8rem;">{{ story.bias }}</span>
+                            </div>
+                            <h3 class="intel-title">{{ story.title }}</h3>
+
+                            <!-- Tags as top buttons -->
+                            <div style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-bottom:1rem;">
+                                {% for tag in story.tags[:3] %}
+                                <span
+                                    style="background:rgba(255,255,255,0.1); color:white; padding:4px 10px; border-radius:4px; font-size:0.7rem; font-weight:700; text-transform:uppercase;">{{
+                                    tag }}</span>
+                                {% endfor %}
+                            </div>
+                        </div>
+
+                        <!-- Bullets / Summary -->
+                        <div class="intel-section">
+                            <ul>
+                                {% for bullet in story.bullets[:3] %}
+                                <li>{{ bullet }}</li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+
+                        <!-- Who is Affected -->
+                        <div class="intel-section"
+                            style="background:rgba(59, 130, 246, 0.05); border-left:3px solid var(--accent-blue);">
+                            <h4 style="color:var(--accent-blue);">👥 Who is Affected</h4>
+                            <p style="font-size:0.9rem; color:#cbd5e1;">{{ story.affected }}</p>
+                        </div>
+
+                        <!-- Why It Matters -->
+                        <div class="intel-section"
+                            style="background:rgba(251, 188, 4, 0.05); border-left:3px solid var(--accent-gold);">
+                            <h4 style="color:var(--accent-gold);">⚡ Why It Matters</h4>
+                            <p style="font-size:0.9rem; color:#cbd5e1;">{{ story.why }}</p>
+                        </div>
+
+                        <div class="intel-footer">
+                            <span style="font-size:0.8rem; color:var(--text-secondary);">AI Analysis • {{ story.time_ago
+                                or
+                                'Just Now' }}</span>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% if (digest.top_stories or [])|length > 6 %}
+                <button class="see-more-btn" onclick="toggleSeeMore(this, '.intel-card')">See More</button>
+                {% endif %}
+        </section>
+
+        <!-- 6. 60-SECOND BRIEF (Content Block 4) -->
+        {% if digest.brief and not selected_category %}
+        <section class="brief-section">
+            <h2 class="section-title" style="margin-bottom:2rem; color: #fff;">
+                <span style="color:var(--accent-gold)">⭐</span> 60-Second Brief
+            </h2>
+            <div class="brief-grid">
+                {% for point in digest.brief %}
+                <div class="brief-item" onclick="window.location.hash='top-headlines'">
+                    <span class="brief-dot">●</span>
+                    <div class="brief-title">
+                        {{ point.title }}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </section>
+        {% endif %}
+
+        <!-- 7. TRENDING IN INDIA (Content Block 5) -->
+        {% if not selected_category %}
+        <section class="trending-india">
+            <div class="section-header">
+                <h2 class="section-title">Trending in India</h2>
+                <span style="color: var(--accent-green); font-size:0.8rem; font-weight:700;">LIVE UPDATES</span>
+            </div>
+            <div class="trending-grid">
+                {% if digest.trending_news %}
+                {% for item in digest.trending_news %}
+                <div class="trend-card" data-url="{{ item.url or '#' }}"
+                    onclick="window.open(this.dataset.url, '_blank')">
+                    <span class="trend-badge">VIRAL</span>
+                    <h4 style="margin:0 0 0.5rem 0; font-size:1rem; color: var(--text-primary); font-weight: 600;">{{
+                        item.title }}</h4>
+                    <div
+                        style="display:flex; justify-content:space-between; font-size:0.75rem; color:var(--text-secondary); margin-top: 1rem;">
+                        <span>{{ item.source_name }}</span>
+                        <span>{{ item.engagement }}</span>
+                    </div>
+                </div>
+                {% endfor %}
+                {% else %}
+                <div style="color: var(--text-secondary); padding: 1rem;">No specific trending data currently available.
+                </div>
+                {% endif %}
+            </div>
+        </section>
+        {% endif %}
+
+        <!-- 8. TODAY'S NEWSPAPERS (Bottom Block) -->
+        {% if not selected_category %}
+        <section class="newspapers-bottom" id="newspaper-section">
+            <div class="section-header">
+                <h2 class="section-title">Today's Newspapers</h2>
+            </div>
+            <div class="paper-shelf">
+                <!-- Hardcoded popular papers as per request to look like covers -->
+                <a href="https://www.bbc.com" target="_blank" class="paper-item">
+                    <div class="paper-logo" style="color:#b91c1c;">BBC</div>
+                    <span style="font-size:0.8rem; font-weight:600; color:var(--text-secondary);">BBC News</span>
+                </a>
+                <a href="https://www.cnn.com" target="_blank" class="paper-item">
+                    <div class="paper-logo" style="color:#cc0000;">CNN</div>
+                    <span style="font-size:0.8rem; font-weight:600; color:var(--text-secondary);">CNN</span>
+                </a>
+                <a href="https://www.thehindu.com" target="_blank" class="paper-item">
+                    <div class="paper-logo" style="color:#000;">THE HINDU</div>
+                    <span style="font-size:0.8rem; font-weight:600; color:var(--text-secondary);">The Hindu</span>
+                </a>
+                <a href="https://timesofindia.indiatimes.com" target="_blank" class="paper-item">
+                    <div class="paper-logo" style="font-family:serif; color:#000;">TOI</div>
+                    <span style="font-size:0.8rem; font-weight:600; color:var(--text-secondary);">Times of India</span>
+                </a>
+                <a href="https://www.wsj.com" target="_blank" class="paper-item">
+                    <div class="paper-logo" style="font-family:serif; color:#000;">WSJ</div>
+                    <span style="font-size:0.8rem; font-weight:600; color:var(--text-secondary);">Wall Street
+                        Journal</span>
+                </a>
+            </div>
+        </section>
+        {% endif %}
+
+        {% endif %}
+
+        <footer
+            style="margin-top:4rem; padding-top:2rem; border-top:1px solid var(--border-color); text-align:center; color:var(--text-secondary); font-size:0.8rem;">
+            &copy; 2026 Universal News Intelligence. All rights reserved. <br>
+            AI-generated summaries. Verify with original sources.
+        </footer>
+    </main>
+
+    <!-- 9. MOBILE MENU OVERLAY -->
+    <div class="mobile-menu-overlay" id="mobile-menu-overlay">
+        <div class="mobile-menu-content">
+            <div class="mobile-menu-header">
+                <div class="logo">UNI AP</div>
+                <button class="close-menu" id="close-menu">&times;</button>
+            </div>
+            <nav class="mobile-nav">
+                <a href="/dashboard" class="mobile-nav-link">🏠 Home</a>
+                <div class="mobile-nav-group">
+                    <div class="mobile-nav-label">Categories</div>
+                    <div class="mobile-category-grid">
+                        <a href="/dashboard?category=sports" class="mobile-cat-link">Sports</a>
+                        <a href="/dashboard?category=politics" class="mobile-cat-link">Politics</a>
+                        <a href="/dashboard?category=business" class="mobile-cat-link">Business</a>
+                        <a href="/dashboard?category=technology" class="mobile-cat-link">Technology</a>
+                        <a href="/dashboard?category=ai" class="mobile-cat-link">AI</a>
+                        <a href="/dashboard?category=world" class="mobile-cat-link">World</a>
+                        <a href="/dashboard?category=india" class="mobile-cat-link">India</a>
+                        <a href="/dashboard?category=science" class="mobile-cat-link">Science</a>
+                        <a href="/dashboard?category=entertainment" class="mobile-cat-link">Entertainment</a>
+                    </div>
+                </div>
+                <a href="/saved" class="mobile-nav-link">🔖 Saved Items</a>
+                <a href="/mock-test" class="mobile-nav-link">📝 Mock Test</a>
+                <a href="/history" class="mobile-nav-link">📖 History</a>
+                <a href="/business-intelligence" class="mobile-nav-link">📊 Analyst Reports</a>
+            </nav>
+        </div>
+    </div>
+
+    <script src="/static/dashboard.js?v=4.2"></script>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "{{ firebase_config.apiKey }}",
+            authDomain: "{{ firebase_config.authDomain }}",
+            projectId: "{{ firebase_config.projectId }}",
+            storageBucket: "{{ firebase_config.storageBucket }}",
+            messagingSenderId: "{{ firebase_config.messagingSenderId }}",
+            appId: "{{ firebase_config.appId }}"
+        };
+
+        // Initialize Firebase
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
+        const auth = firebase.auth();
+        const messaging = firebase.messaging();
+
+        const loginBtn = document.getElementById('login-btn');
+        const logoutBtn = document.getElementById('logout-btn');
+        const userImg = document.getElementById('user-avatar-img');
+
+        // Check Auth using onAuthStateChanged
+        auth.onAuthStateChanged(async (user) => {
+            if (user) {
+                console.log("User logged in:", user.email);
+                if (user.photoURL && userImg) userImg.src = user.photoURL;
+                if (logoutBtn) logoutBtn.style.display = 'block';
+                if (loginBtn) loginBtn.style.display = 'none';
+
+                // Sync to backend
+                try {
+                    const idToken = await user.getIdToken();
+                    await fetch('/api/login', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ id_token: idToken })
+                    });
+                } catch (e) {
+                    console.error("Login sync failed", e);
+                }
+            } else {
+                if (logoutBtn) logoutBtn.style.display = 'none';
+                if (loginBtn) loginBtn.style.display = 'block';
+            }
+        });
+
+        if (loginBtn) {
+            loginBtn.onclick = () => {
+                const provider = new firebase.auth.GoogleAuthProvider();
+                auth.signInWithPopup(provider);
+            };
+        }
+
+        if (logoutBtn) {
+            logoutBtn.onclick = () => {
+                auth.signOut().then(() => {
+                    window.location.reload();
+                });
+            };
+        }
+
+        // Auto-scroll Video Carousel (One by One)
+        const videos = document.querySelectorAll('.video-card');
+        if (videos.length > 0) {
+            let currentIndex = 0;
+            setInterval(() => {
+                videos[currentIndex].classList.remove('active-video');
+                currentIndex = (currentIndex + 1) % videos.length;
+                videos[currentIndex].classList.add('active-video');
+            }, 3000);
+        }
+
+        // Mobile Menu Logic
+        const mobileMenuBtn = document.getElementById('mobile-menu-btn');
+        const closeMenuBtn = document.getElementById('close-menu');
+        const mobileMenu = document.getElementById('mobile-menu-overlay');
+
+        if (mobileMenuBtn && mobileMenu) {
+            mobileMenuBtn.addEventListener('click', () => {
+                mobileMenu.classList.add('active');
+                document.body.style.overflow = 'hidden';
+            });
+        }
+
+        if (closeMenuBtn && mobileMenu) {
+            closeMenuBtn.addEventListener('click', () => {
+                mobileMenu.classList.remove('active');
+                document.body.style.overflow = '';
+            });
+        }
+
+        // Close on link click
+        document.querySelectorAll('.mobile-nav-link, .mobile-cat-link').forEach(link => {
+            link.addEventListener('click', () => {
+                mobileMenu.classList.remove('active');
+                document.body.style.overflow = '';
+            });
+        });
+    </script>
+</body>
+
+</html>
