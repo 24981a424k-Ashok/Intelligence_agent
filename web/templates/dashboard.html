@@ -242,94 +242,87 @@
                 </span>
             </div>
             <div class="headlines-grid">
-                {% for story in (digest.top_stories or []) %}
-                <div class="intel-card {% if loop.index > 6 %}hidden-item{% endif %}" data-url="{{ story.url }}"
-                    data-id="{{ story.id }}" onclick="handleCardClick(this)">
+                {% for story in (digest.top_stories or [])[:6] %}
+                <div class="intel-card" data-url="{{ story.url }}" data-id="{{ story.id }}"
+                    onclick="handleCardClick(this)">
 
                     <!-- Improved Image Logic with Random Gradient Fallback -->
-                    <!-- TOP STORIES (GRID) -->
-                    <section class="intel-section-header">
-                        <h2 class="section-title"><span class="icon">⚡</span> Top Intelligence Headlines</h2>
-                    </section>
+                    {% set bg_image = story.image_url %}
+                    {% if bg_image %}
+                    <div class="intel-card-image" style="background-image: url('{{ bg_image }}');"
+                        data-bg="{{ bg_image }}">
+                        {% else %}
+                        <div class="intel-card-image" style="background: linear-gradient(135deg, #1e293b, #0f172a);"
+                            data-bg="">
+                            {% endif %}
 
-                    <!-- ID added for JS targeting -->
-                    <div id="top-stories-container" class="intel-grid main-content" data-category="top_stories">
-                        {% for story in digest.top_stories[:6] %}
-                        <div class="intel-card fade-in" data-url="{{ story.url }}" data-id="{{ story.id }}"
-                            onclick="handleCardClick(this)">
-                            {% set bg_image = story.image_url %}
-                            {% if bg_image %}
-                            <div class="intel-card-image" style="background-image: url('{{ bg_image }}');"
-                                data-bg="{{ bg_image }}">
-                                {% else %}
-                                <div class="intel-card-image"
-                                    style="background: linear-gradient(135deg, #1e293b, #0f172a);" data-bg="">
-                                    {% endif %}
-                                    {% set clean_title = (story.title or "") | replace("'", "") | replace('"', "") |
-                                    replace("\\", "") %}
-                                    {% set clean_category = (selected_category or "top_stories") | replace("'", "") |
-                                    replace('"', "") %}
-                                    <img src="{{ bg_image or '#' }}" style="display:none;"
-                                        data-cat="{{ clean_category }}"
-                                        onerror="handleImageError(this, '{{ clean_category }}', '{{ clean_title }}', '{{ loop.index0 }}')">
+                            {% set clean_title = (story.title or "") | replace("'", "") | replace('"', "") |
+                            replace("\\", "") %}
+                            {% set clean_category = (selected_category or "top_stories") | replace("'", "") |
+                            replace('"', "") %}
+                            <!-- Fallback Script for this specific card -->
+                            <img src="{{ bg_image or '#' }}" style="display:none;" data-cat="{{ clean_category }}"
+                                onerror="this.parentElement.style.backgroundImage = 'url(' + getCategoryFallback('{{ clean_category }}', '{{ clean_title }}', parseInt('{{ loop.index0 }}')) + ')'">
 
-                                    <button class="save-btn" onclick="saveArticle(event, '{{ story.id }}')">
-                                        <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-                                            <path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z" />
-                                        </svg>
-                                    </button>
-                                </div>
+                            <button class=" save-btn" onclick="saveArticle(event, '{{ story.id }}')">
+                                <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                                    <path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z" />
+                                </svg>
+                            </button>
+                        </div>
 
-                                <div class="intel-header">
-                                    <div style="display:flex; justify-content:space-between; margin-bottom:0.5rem;">
-                                        <span
-                                            style="color:var(--accent-blue); font-size:0.8rem; font-weight:700;">VERIFIED:
-                                            {{ story.source_name }}</span>
-                                        <span style="color:var(--text-secondary); font-size:0.8rem;">{{ story.bias
-                                            }}</span>
-                                    </div>
-                                    <h3 class="intel-title">{{ story.title }}</h3>
-                                    <div style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-bottom:1rem;">
-                                        {% for tag in story.tags[:3] %}
-                                        <span
-                                            style="background:rgba(255,255,255,0.1); color:white; padding:4px 10px; border-radius:4px; font-size:0.7rem; font-weight:700; text-transform:uppercase;">{{
-                                            tag }}</span>
-                                        {% endfor %}
-                                    </div>
-                                </div>
-
-                                <div class="intel-section">
-                                    <ul>
-                                        {% for bullet in story.bullets[:3] %}
-                                        <li>{{ bullet }}</li>
-                                        {% endfor %}
-                                    </ul>
-                                </div>
-
-                                <div class="intel-section"
-                                    style="background:rgba(59, 130, 246, 0.05); border-left:3px solid var(--accent-blue);">
-                                    <h4 style="color:var(--accent-blue);">👥 Who is Affected</h4>
-                                    <p style="font-size:0.9rem; color:#cbd5e1;">{{ story.affected }}</p>
-                                </div>
-
-                                <div class="intel-section"
-                                    style="background:rgba(251, 188, 4, 0.05); border-left:3px solid var(--accent-gold);">
-                                    <h4 style="color:var(--accent-gold);">⚡ Why It Matters</h4>
-                                    <p style="font-size:0.9rem; color:#cbd5e1;">{{ story.why }}</p>
-                                </div>
-
-                                <div class="intel-footer">
-                                    <span style="font-size:0.8rem; color:var(--text-secondary);">AI Analysis • {{
-                                        story.time_ago }}</span>
-                                </div>
+                        <div class="intel-header">
+                            <div style="display:flex; justify-content:space-between; margin-bottom:0.5rem;">
+                                <span style="color:var(--accent-blue); font-size:0.8rem; font-weight:700;">VERIFIED: {{
+                                    story.source_name }}</span>
+                                <span style="color:var(--text-secondary); font-size:0.8rem;">{{ story.bias }}</span>
                             </div>
-                            {% endfor %}
+                            <h3 class="intel-title">{{ story.title }}</h3>
+
+                            <!-- Tags as top buttons -->
+                            <div style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-bottom:1rem;">
+                                {% for tag in story.tags[:3] %}
+                                <span
+                                    style="background:rgba(255,255,255,0.1); color:white; padding:4px 10px; border-radius:4px; font-size:0.7rem; font-weight:700; text-transform:uppercase;">{{
+                                    tag }}</span>
+                                {% endfor %}
+                            </div>
                         </div>
 
-                        <div style="text-align:center; margin:2rem 0;">
-                            <button class="action-btn" onclick="toggleSeeMore(this, '.intel-card')">See More
-                                Analysis</button>
+                        <!-- Bullets / Summary -->
+                        <div class="intel-section">
+                            <ul>
+                                {% for bullet in story.bullets[:3] %}
+                                <li>{{ bullet }}</li>
+                                {% endfor %}
+                            </ul>
                         </div>
+
+                        <!-- Who is Affected -->
+                        <div class="intel-section"
+                            style="background:rgba(59, 130, 246, 0.05); border-left:3px solid var(--accent-blue);">
+                            <h4 style="color:var(--accent-blue);">👥 Who is Affected</h4>
+                            <p style="font-size:0.9rem; color:#cbd5e1;">{{ story.affected }}</p>
+                        </div>
+
+                        <!-- Why It Matters -->
+                        <div class="intel-section"
+                            style="background:rgba(251, 188, 4, 0.05); border-left:3px solid var(--accent-gold);">
+                            <h4 style="color:var(--accent-gold);">⚡ Why It Matters</h4>
+                            <p style="font-size:0.9rem; color:#cbd5e1;">{{ story.why }}</p>
+                        </div>
+
+                        <div class="intel-footer">
+                            <span style="font-size:0.8rem; color:var(--text-secondary);">AI Analysis • {{ story.time_ago
+                                or
+                                'Just Now' }}</span>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% if (digest.top_stories or [])|length > 6 %}
+                <button class="see-more-btn" onclick="toggleSeeMore(this, '.intel-card')">See More</button>
+                {% endif %}
         </section>
 
         <!-- 6. 60-SECOND BRIEF (Content Block 4) -->
@@ -389,25 +382,21 @@
             </div>
             <div class="paper-shelf">
                 <!-- Hardcoded popular papers as per request to look like covers -->
-                <a href="https://indianexpress.com/" target="_blank" class="paper-item">
-                    <div class="paper-logo" style="color:#b91c1c; font-family:serif;">IE</div>
+                <a href="https://indianexpress.com" target="_blank" class="paper-item">
+                    <div class="paper-logo" style="color:#000;">IE</div>
                     <span style="font-size:0.8rem; font-weight:600; color:var(--text-secondary);">Indian Express</span>
                 </a>
-                <a href="https://economictimes.indiatimes.com/" target="_blank" class="paper-item">
-                    <div class="paper-logo" style="color:#1a365d; font-family:sans-serif;">ET</div>
+                <a href="https://economictimes.indiatimes.com" target="_blank" class="paper-item">
+                    <div class="paper-logo" style="color:#2563eb;">ET</div>
                     <span style="font-size:0.8rem; font-weight:600; color:var(--text-secondary);">Economic Times</span>
                 </a>
-                <a href="https://www.nytimes.com/" target="_blank" class="paper-item">
+                <a href="https://www.nytimes.com" target="_blank" class="paper-item">
                     <div class="paper-logo" style="font-family:serif; color:#000;">NYT</div>
-                    <span style="font-size:0.8rem; font-weight:600; color:var(--text-secondary);">New York Times</span>
+                    <span style="font-size:0.8rem; font-weight:600; color:var(--text-secondary);">NY Times</span>
                 </a>
-                <a href="https://www.thetimes.com/" target="_blank" class="paper-item">
-                    <div class="paper-logo" style="font-family:serif; color:#000;">The Times</div>
+                <a href="https://www.thetimes.co.uk" target="_blank" class="paper-item">
+                    <div class="paper-logo" style="font-family:serif; color:#000;">THE TIMES</div>
                     <span style="font-size:0.8rem; font-weight:600; color:var(--text-secondary);">The Times</span>
-                </a>
-                <a href="https://www.thehindu.com" target="_blank" class="paper-item">
-                    <div class="paper-logo" style="color:#000;">THE HINDU</div>
-                    <span style="font-size:0.8rem; font-weight:600; color:var(--text-secondary);">The Hindu</span>
                 </a>
             </div>
         </section>

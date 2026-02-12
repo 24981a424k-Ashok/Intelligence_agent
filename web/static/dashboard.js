@@ -4,16 +4,6 @@
  */
 
 // ===== IMAGE FALLBACK HELPER =====
-window.handleImageError = function (img, category, seed, index) {
-    if (img.dataset.hasError) return;
-    img.dataset.hasError = "true";
-    img.style.display = 'none';
-    const fallback = getCategoryFallback(category, seed, parseInt(index));
-    if (img.parentElement) {
-        img.parentElement.style.backgroundImage = `url('${fallback}')`;
-    }
-};
-
 function getCategoryFallback(category, seed = '', index = 0) {
     const images = {
         'business': [
@@ -255,7 +245,11 @@ async function toggleSeeMore(btn, selector) {
     btn.disabled = true;
 
     try {
-        // Calculate offset based on ALL items currently in container (visible)
+        // Calculate offset based on items already in the target container
+        // Target container is now the Trending Grid as per user request
+        const targetContainer = document.querySelector('.trending-grid');
+        if (!targetContainer) throw new Error("Trending section not found");
+
         const currentItems = container.querySelectorAll(selector).length;
         const response = await fetch(`/api/more-stories/${encodeURIComponent(category)}/${currentItems}`);
 
@@ -266,69 +260,21 @@ async function toggleSeeMore(btn, selector) {
             data.stories.forEach((story, idx) => {
                 const globalIdx = currentItems + idx;
                 const div = document.createElement('div');
-                div.className = 'intel-card fade-in';
+                // Use trend-card style to fit in trending section
+                div.className = 'trend-card fade-in';
                 div.setAttribute('data-url', story.url);
                 div.setAttribute('data-id', story.id);
                 div.onclick = function () { if (window.handleCardClick) window.handleCardClick(this); else window.open(story.url, '_blank'); };
 
-                const bgImage = story.image_url;
-                const fallbackImage = getCategoryFallback(category, story.title || story.headline, globalIdx);
-
-                if (selector.includes('breaking')) {
-                    div.className = 'breaking-card-emergency fade-in';
-                    div.innerHTML = `
-                        <div class="breaking-badge">BREAKING NEWS</div>
-                        <div class="breaking-img-top" style="background-image: url('${bgImage || fallbackImage}');">
-                             <img src="${bgImage || '#'}" style="display:none;" 
-                                 onerror="this.parentElement.style.backgroundImage = 'url(' + getCategoryFallback('breaking', '${(story.title || '').replace(/'/g, "\\'")}', ${globalIdx}) + ')'">
-                        </div>
-                        <div class="breaking-content" style="padding:1.5rem;">
-                            <h3 class="breaking-headline">${story.title || story.headline}</h3>
-                            <div class="breaking-section">
-                                <ul class="breaking-bullets">
-                                    <li>${story.bullets ? story.bullets[0] : (story.summary || story.title)}</li>
-                                </ul>
-                            </div>
-                        </div>
-                     `;
-                } else {
-                    div.innerHTML = `
-                        <div class="intel-card-image" style="background-image: url('${bgImage || fallbackImage}');">
-                             <img src="${bgImage || '#'}" style="display:none;" 
-                                 onerror="this.parentElement.style.backgroundImage = 'url(' + getCategoryFallback('${category}', '${(story.title || '').replace(/'/g, "\\'")}', ${globalIdx}) + ')'">
-                            <button class="save-btn" onclick="saveArticle(event, '${story.id}')">
-                                <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z" /></svg>
-                            </button>
-                        </div>
-                        <div class="intel-header">
-                            <div style="display:flex; justify-content:space-between; margin-bottom:0.5rem;">
-                                <span style="color:var(--accent-blue); font-size:0.8rem; font-weight:700;">VERIFIED: ${story.source_name}</span>
-                                <span style="color:var(--text-secondary); font-size:0.8rem;">${story.bias || 'Neutral'}</span>
-                            </div>
-                            <h3 class="intel-title">${story.title}</h3>
-                            <div style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-bottom:1rem;">
-                                ${(story.tags || []).slice(0, 3).map(tag => `
-                                    <span style="background:rgba(255,255,255,0.1); color:white; padding:4px 10px; border-radius:4px; font-size:0.7rem; font-weight:700; text-transform:uppercase;">${tag}</span>
-                                `).join('')}
-                            </div>
-                        </div>
-                        <div class="intel-section">
-                            <ul>${(story.bullets || []).slice(0, 3).map(b => `<li>${b}</li>`).join('')}</ul>
-                        </div>
-                        <div class="intel-section" style="background:rgba(59, 130, 246, 0.05); border-left:3px solid var(--accent-blue);">
-                            <h4 style="color:var(--accent-blue);">👥 Who is Affected</h4>
-                            <p style="font-size:0.9rem; color:#cbd5e1;">${story.affected || 'General public and industry stakeholders.'}</p>
-                        </div>
-                        <div class="intel-section" style="background:rgba(251, 188, 4, 0.05); border-left:3px solid var(--accent-gold);">
-                            <h4 style="color:var(--accent-gold);">⚡ Why It Matters</h4>
-                            <p style="font-size:0.9rem; color:#cbd5e1;">${story.why || 'Significant development requiring industry attention.'}</p>
-                        </div>
-                        <div class="intel-footer">
-                            <span style="font-size:0.8rem; color:var(--text-secondary);">AI Analysis • ${story.time_ago || 'Just Now'}</span>
-                        </div>
-                    `;
-                }
-                container.appendChild(div);
+                div.innerHTML = `
+                    <span class="trend-badge">MORE INTEL</span>
+                    <h4 style="margin:0 0 0.5rem 0; font-size:1rem; color: var(--text-primary); font-weight: 600;">${story.title}</h4>
+                    <div style="display:flex; justify-content:space-between; font-size:0.75rem; color:var(--text-secondary); margin-top: 1rem;">
+                        <span>${story.source_name}</span>
+                        <span>ANALYSIS</span>
+                    </div>
+                `;
+                targetContainer.appendChild(div);
             });
 
             // Update Button State
