@@ -2,98 +2,60 @@ from datetime import datetime, timedelta
 import logging
 from typing import List, Dict, Any
 from newsapi import NewsApiClient
-from src.config.settings import NEWS_API_KEY
+from src.config.settings import NEWS_API_KEYS
 from src.database.models import SessionLocal, RawNews
 
 logger = logging.getLogger(__name__)
 
 class NewsCollector:
     def __init__(self):
-        self.api_key = NEWS_API_KEY
-        if not self.api_key:
-            logger.warning("NewsAPI Key is missing!")
-            self.client = None
+        self.api_keys = NEWS_API_KEYS
+        if not self.api_keys:
+            logger.warning("No NewsAPI Keys found!")
+            self.clients = []
         else:
-            self.client = NewsApiClient(api_key=self.api_key)
+            self.clients = [NewsApiClient(api_key=key) for key in self.api_keys]
 
     def fetch_recent_news(self, query: str = None, domains: str = None, categories: str = None) -> int:
         """
-        Fetch news from the last 24 hours and save to DB.
-        Returns count of new articles saved.
+        Fetch news from the last 24 hours using all available API keys.
+        Returns total count of new articles saved.
         """
-        if not self.client:
-            logger.error("NewsAPI client not initialized.")
+        if not self.clients:
+            logger.error("No NewsAPI clients initialized.")
             return 0
 
-        # Time range: last 24 hours
-        to_date = datetime.utcnow()
-        from_date = to_date - timedelta(hours=24)
+        all_articles = []
         
-        try:
-            # We can customize this to fetch top headlines or everything
-            # For this agent, we might want 'everything' for breadth or 'top-headlines' for quality
-            # Let's start with top headlines for major categories
+        # Iterate through all available clients to collect more data
+        for i, client in enumerate(self.clients):
+            try:
+                logger.info(f"Fetching news cycle with API Key {i+1}/{len(self.clients)}...")
+                
+                # Fetch top headlines
+                response = client.get_top_headlines(language='en', page_size=100)
+                if response.get('status') == 'ok':
+                    all_articles.extend(response.get('articles', []))
+                
+                # Dedicated Business Fetch
+                biz_response = client.get_top_headlines(language='en', category='business', country='in', page_size=100)
+                if biz_response.get('status') == 'ok':
+                    all_articles.extend(biz_response.get('articles', []))
+
+                # Dedicated Technology/AI Fetch (Rotating queries for variety)
+                tech_queries = ['technology', 'artificial intelligence', 'machine learning', 'crypto']
+                q = tech_queries[i % len(tech_queries)]
+                search_response = client.get_everything(q=q, language='en', sort_by='publishedAt', page_size=100)
+                if search_response.get('status') == 'ok':
+                    all_articles.extend(search_response.get('articles', []))
+
+            except Exception as e:
+                logger.error(f"Error fetching news with key {i+1}: {e}")
+                continue
+
+        saved_count = self._save_articles(all_articles)
+        return saved_count
             
-            # Fetch all top headlines in one call to save quota (100 articles)
-            response = self.client.get_top_headlines(
-                language='en',
-                page_size=70  # General headlines
-            )
-            
-            # Dedicated Business Fetch
-            business_response = self.client.get_top_headlines(
-                language='en',
-                category='business',
-                country='in',
-                page_size=30
-            )
-
-            # Dedicated Sports Fetch
-            sports_response = self.client.get_top_headlines(
-                language='en',
-                category='sports',
-                page_size=30
-            )
-
-            # 4. Search for recent sports and business news specifically to broaden density
-            # Use 'everything' endpoint for more breadth when headlines are dry
-            search_response = self.client.get_everything(
-                q='sports OR "IPL" OR "Cricket" OR "Football"',
-                language='en',
-                sort_by='publishedAt',
-                page_size=40
-            )
-
-            biz_search = self.client.get_everything(
-                q='business OR economy OR startup OR "Stock Market"',
-                language='en',
-                sort_by='publishedAt',
-                page_size=40
-            )
-
-            all_articles = []
-            if response['status'] == 'ok':
-                all_articles.extend(response.get('articles', []))
-            
-            if business_response['status'] == 'ok':
-                all_articles.extend(business_response.get('articles', []))
-            
-            if sports_response['status'] == 'ok':
-                all_articles.extend(sports_response.get('articles', []))
-
-            if search_response['status'] == 'ok':
-                all_articles.extend(search_response.get('articles', []))
-
-            if biz_search['status'] == 'ok':
-                all_articles.extend(biz_search.get('articles', []))
-            
-            saved_count = self._save_articles(all_articles)
-            return saved_count
-            
-        except Exception as e:
-            logger.error(f"Error fetching news: {e}")
-            return 0
-
     def _save_articles(self, articles: List[Dict[str, Any]]) -> int:
         session = SessionLocal()
         count = 0
