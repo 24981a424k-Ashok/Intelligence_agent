@@ -13,6 +13,66 @@ chat_engine = NewsChatEngine()
 router = APIRouter()
 templates = Jinja2Templates(directory="web/templates")
 
+FALLBACK_IMAGES = [
+    "https://images.unsplash.com/photo-1504711434969-e33886168f5c?q=80&w=1000",
+    "https://images.unsplash.com/photo-1495020689067-958852a7765e?q=80&w=1000",
+    "https://images.unsplash.com/photo-1476242484419-cf5c1d4ee04b?q=80&w=1000",
+    "https://images.unsplash.com/photo-1585829365294-bb7c63b3ecda?q=80&w=1000",
+    "https://images.unsplash.com/photo-1502139214982-d0ad755a619d?q=80&w=1000",
+    "https://images.unsplash.com/photo-1557683316-973673baf926?q=80&w=1000",
+    "https://images.unsplash.com/photo-1451187580459-43490279c0fa?q=80&w=1000",
+    "https://images.unsplash.com/photo-1518770660439-4636190af475?q=80&w=1000",
+    "https://images.unsplash.com/photo-1485827404703-89b55fcc595e?q=80&w=1000",
+    "https://images.unsplash.com/photo-1504384308090-c894fdcc538d?q=80&w=1000",
+    "https://images.unsplash.com/photo-1526628953301-3e589a6a8b74?q=80&w=1000",
+    "https://images.unsplash.com/photo-1460925895917-afdab827c52f?q=80&w=1000",
+    "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?q=80&w=1000",
+    "https://images.unsplash.com/photo-1519389950473-47ba0277781c?q=80&w=1000",
+    "https://images.unsplash.com/photo-1486312338219-ce68d2c6f44d?q=80&w=1000",
+    "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?q=80&w=1000",
+    "https://images.unsplash.com/photo-1515378960530-7c0da6231fb1?q=80&w=1000",
+    "https://images.unsplash.com/photo-1498050108023-c5249f4df085?q=80&w=1000",
+    "https://images.unsplash.com/photo-1488590528505-98d2b5aba04b?q=80&w=1000",
+    "https://images.unsplash.com/photo-1525547719571-a2d4ac8945e2?q=80&w=1000",
+    "https://images.unsplash.com/photo-1531297484001-80022131f5a1?q=80&w=1000",
+    "https://images.unsplash.com/photo-1510511459019-5dee2c127ffb?q=80&w=1000",
+    "https://images.unsplash.com/photo-1485827404703-89b55fcc595e?q=80&w=1000",
+    "https://images.unsplash.com/photo-1504384308090-c894fdcc538d?q=80&w=1000",
+    "https://images.unsplash.com/photo-1531297484001-80022131f5a1?q=80&w=1000",
+    "https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?q=80&w=1000",
+    "https://images.unsplash.com/photo-1519389950473-47ba0277781c?q=80&w=1000",
+    "https://images.unsplash.com/photo-1486312338219-ce68d2c6f44d?q=80&w=1000",
+    "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?q=80&w=1000",
+    "https://images.unsplash.com/photo-1515378960530-7c0da6231fb1?q=80&w=1000",
+    "https://images.unsplash.com/photo-1432888622747-4eb9a8f2c1d1?q=80&w=1000",
+    "https://images.unsplash.com/photo-1461749280684-dccba630e2f6?q=80&w=1000",
+    "https://images.unsplash.com/photo-1498050108023-c5249f4df085?q=80&w=1000",
+    "https://images.unsplash.com/photo-1518770660439-4636190af475?q=80&w=1000",
+    "https://images.unsplash.com/photo-1451187580459-43490279c0fa?q=80&w=1000",
+    "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?q=80&w=1000",
+    "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?q=80&w=1000",
+    "https://images.unsplash.com/photo-1510915361894-db8b60106cb1?q=80&w=1000",
+    "https://images.unsplash.com/photo-1515879218367-8466d910aaa4?q=80&w=1000",
+    "https://images.unsplash.com/photo-1516116216624-53e697fedbea?q=80&w=1000",
+    "https://images.unsplash.com/photo-1517694712202-14dd9538aa97?q=80&w=1000",
+    "https://images.unsplash.com/photo-1537432376769-00f5c2f4c8d2?q=80&w=1000",
+    "https://images.unsplash.com/photo-1523961131990-5ea7c61b2107?q=80&w=1000",
+    "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?q=80&w=1000",
+    "https://images.unsplash.com/photo-1504384308090-c894fdcc538d?q=80&w=1000",
+    "https://images.unsplash.com/photo-1518770660439-4636190af475?q=80&w=1000",
+    "https://images.unsplash.com/photo-1496065187959-7f07b8353c55?q=80&w=1000",
+    "https://images.unsplash.com/photo-1531297484001-80022131f5a1?q=80&w=1000",
+    "https://images.unsplash.com/photo-1519389950473-47ba0277781c?q=80&w=1000",
+    "https://images.unsplash.com/photo-1485827404703-89b55fcc595e?q=80&w=1000",
+    "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?q=80&w=1000"
+]
+
+def get_fallback_image(seed: str) -> str:
+    """Deterministically select a fallback image based on string hash"""
+    if not seed: return FALLBACK_IMAGES[0]
+    hash_val = sum(ord(c) for c in seed)
+    return FALLBACK_IMAGES[hash_val % len(FALLBACK_IMAGES)]
+
 def get_db():
     db = SessionLocal()
     try:
@@ -131,6 +191,13 @@ async def dashboard(request: Request, category: str = None, db: Session = Depend
         "selected_category": selected_category
     }
     
+    # Inject fallback images for breaking news
+    if digest_data and "breaking_news" in digest_data:
+        for idx, item in enumerate(digest_data["breaking_news"]):
+            if not item.get("image_url"):
+                seed = f"{item.get('headline', '')}{item.get('title', '')}"
+                item["image_url"] = get_fallback_image(seed)
+
     return templates.TemplateResponse("dashboard.html", context)
 
 @router.get("/saved")
@@ -206,6 +273,11 @@ async def get_breaking_news(db: Session = Depends(get_db)):
     breaking_news = []
     if latest_digest and "breaking_news" in latest_digest.content_json:
         breaking_news = latest_digest.content_json["breaking_news"]
+        # Inject fallback images
+        for idx, item in enumerate(breaking_news):
+            if not item.get("image_url"):
+                seed = f"{item.get('headline', '')}{item.get('title', '')}"
+                item["image_url"] = get_fallback_image(seed)
     
     return {"breaking_news": breaking_news}
 

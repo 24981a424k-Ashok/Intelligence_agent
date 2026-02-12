@@ -298,6 +298,18 @@ async function toggleSeeMore(btn, selector) {
     }
 }
 
+function expandBrief(btn) {
+    const grid = document.getElementById('brief-grid');
+    if (!grid) return;
+    const hiddenItems = grid.querySelectorAll('.hidden-item');
+    hiddenItems.forEach(item => {
+        item.classList.remove('hidden-item');
+        item.style.display = 'flex';
+    });
+    btn.style.display = 'none';
+}
+window.expandBrief = expandBrief;
+
 // ===== DARK/LIGHT MODE TOGGLE =====
 function initializeThemeToggle() {
     // Check for saved theme preference or default to dark

@@ -331,8 +331,8 @@
             <h2 class="section-title" style="margin-bottom:2rem; color: #fff;">
                 <span style="color:var(--accent-gold)">⭐</span> 60-Second Brief
             </h2>
-            <div class="brief-grid">
-                {% for point in digest.brief %}
+            <div class="brief-grid" id="brief-grid">
+                {% for point in digest.brief[:8] %}
                 <div class="brief-item" onclick="window.location.hash='top-headlines'">
                     <span class="brief-dot">●</span>
                     <div class="brief-title">
@@ -340,7 +340,22 @@
                     </div>
                 </div>
                 {% endfor %}
+                {% if digest.brief|length > 8 %}
+                {% for point in digest.brief[8:] %}
+                <div class="brief-item hidden-item" onclick="window.location.hash='top-headlines'"
+                    style="display:none;">
+                    <span class="brief-dot">●</span>
+                    <div class="brief-title">
+                        {{ point.title }}
+                    </div>
+                </div>
+                {% endfor %}
+                {% endif %}
             </div>
+            {% if digest.brief|length > 8 %}
+            <button class="see-more-btn" id="brief-see-more" onclick="expandBrief(this)" style="margin-top:1.5rem;">See
+                More Briefs</button>
+            {% endif %}
         </section>
         {% endif %}
 
