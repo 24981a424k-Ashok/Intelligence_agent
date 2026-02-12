@@ -51,7 +51,19 @@ class DigestGenerator:
                 
                 # DIRECT FALLBACK (Bypass LLM for volume)
                 breaking_results = []
+                seen_titles = set()
+                
                 for a in articles_to_analyze:
+                    title = a.get("title")
+                    if title in seen_titles:
+                        continue
+                    seen_titles.add(title)
+
+                    # Calculate actual recency
+                    published_at = a.get("published_at") or datetime.utcnow()
+                    recency = int((datetime.utcnow() - published_at).total_seconds() / 60)
+                    if recency < 0: recency = 0
+
                     breaking_results.append({
                         "original_article": a,
                         "classification": "Breaking",
@@ -61,7 +73,7 @@ class DigestGenerator:
                         "next_updates": ["Developing story."],
                         "confidence_level": "High",
                         "impact_score": 5,
-                        "recency_minutes": 0
+                        "recency_minutes": recency
                     })
                 
                 # Save to database and prepare for digest
