@@ -15,8 +15,11 @@ class ExamGenerator:
     def get_yesterday_news(self, db: Session) -> List[Dict]:
         """Fetch verified news from yesterday 12:00 PM to 9:00 PM IST"""
         # Calculate time window
-        logging.basicConfig(filename='exam_gen.log', level=logging.INFO, 
-                            format='%(asctime)s - %(levelname)s - %(message)s')
+        # Configure logging to stream to stdout/stderr instead of file
+        # This fixes PermissionError in read-only container environments
+        logging.basicConfig(level=logging.INFO, 
+                            format='%(asctime)s - %(levelname)s - %(message)s',
+                            force=True)
         
         now = datetime.utcnow()
         yesterday = now - timedelta(days=1)
