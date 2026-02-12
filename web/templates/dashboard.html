@@ -171,7 +171,7 @@
                             <div class="side-img"
                                 style="height:100%; width:100%; background-image: url('{{ slide_bg }}');">
                                 <img src="{{ slide_bg }}" style="display:none;" data-seed="{{ clean_title }}"
-                                    data-index="{{ loop.index0 }}"
+                                    data-index="{{ loop.index0 + 7 }}"
                                     onerror="handleImageError(this, 'breaking', this.dataset.seed, this.dataset.index)">
                                 <!-- Gradient Overlay -->
                                 <div
@@ -205,7 +205,7 @@
                     {% set mini_bg = item.image_url or '/static/cyber_bg.png' %}
                     <div class="mini-img" style="background-image: url('{{ mini_bg }}');">
                         <img src="{{ item.image_url or '' }}" style="display:none;" data-seed="{{ clean_title }}"
-                            data-index="{{ loop.index0 }}"
+                            data-index="{{ loop.index0 + 17 }}"
                             onerror="handleImageError(this, 'breaking', this.dataset.seed, this.dataset.index)">
                     </div>
                     <div class="mini-content">
