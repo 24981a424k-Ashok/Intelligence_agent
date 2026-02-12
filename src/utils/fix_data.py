@@ -6,7 +6,7 @@ from datetime import datetime
 # Ensure src is in path
 sys.path.append(os.getcwd())
 
-from src.database.models import SessionLocal, BreakingNews, VerifiedNews, float
+from src.database.models import SessionLocal, BreakingNews, VerifiedNews
 from sqlalchemy import func
 
 # Configure Logging
