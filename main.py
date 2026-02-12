@@ -63,6 +63,14 @@ async def lifespan(app: FastAPI):
     from src.config.firebase_config import initialize_firebase
     initialize_firebase()
     
+    # Run one-time data fix for "0 min ago" issue and duplication
+    try:
+        from src.utils.fix_data import fix_data
+        logger.info("Running one-time data fix (timestamps & deduplication)...")
+        fix_data()
+    except Exception as e:
+        logger.error(f"Data fix failed: {e}")
+    
     # Start Scheduler
     scheduler = start_scheduler()
     logger.info("Scheduler started.")
