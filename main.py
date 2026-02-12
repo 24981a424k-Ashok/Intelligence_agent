@@ -30,9 +30,14 @@ from src.delivery.web_dashboard import router as dashboard_router
 from src.delivery.user_retention import router as retention_router
 
 # Configure logging
-log_dir = os.path.join("data", "logs")
-os.makedirs(log_dir, exist_ok=True)
-logger.add(os.path.join(log_dir, "app.log"), rotation="500 MB", level="INFO")
+try:
+    log_dir = os.path.join("data", "logs")
+    os.makedirs(log_dir, exist_ok=True)
+    logger.add(os.path.join(log_dir, "app.log"), rotation="500 MB", level="INFO")
+except Exception as e:
+    # If file logging fails (e.g. read-only filesystem), we fall back to stderr (default)
+    # The default loguru handler is already added to stderr
+    print(f"File logging disabled due to error: {e}")
 
 from src.database.models import init_db
 
