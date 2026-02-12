@@ -182,8 +182,8 @@ def start_scheduler():
     
     # Run every 15 minutes (Balanced Update Cycle)
     from datetime import datetime, timedelta
-    # Increase delay to 300 seconds to allow web server to fully stabilize and pass health checks on HF
-    run_date = datetime.now() + timedelta(seconds=300)
+    # Increase delay to 10 seconds to allow web server to fully stabilize and pass health checks on HF
+    run_date = datetime.now() + timedelta(seconds=10)
     
     # helper to run async in background
     def _run_async_cycle():

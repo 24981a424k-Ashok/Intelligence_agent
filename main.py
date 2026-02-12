@@ -120,6 +120,7 @@ def main():
             logger.error(f"Unknown command: {command}")
     else:
         # Run Web Server
+        logger.info(f"🚀 Server starting! Access the dashboard at: http://localhost:{settings.PORT}/dashboard")
         uvicorn.run("main:app", host="0.0.0.0", port=settings.PORT, reload=False)
 
 if __name__ == "__main__":
