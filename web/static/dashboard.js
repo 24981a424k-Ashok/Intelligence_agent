@@ -392,10 +392,10 @@ function initializeThemeToggle() {
                </svg>`;
     };
 
-    // Add to header
-    const header = document.querySelector('header');
-    if (header) {
-        header.appendChild(themeToggle);
+    // Add to header-right
+    const headerRight = document.querySelector('.header-right');
+    if (headerRight) {
+        headerRight.insertBefore(themeToggle, document.getElementById('mobile-menu-btn'));
     }
 }
 

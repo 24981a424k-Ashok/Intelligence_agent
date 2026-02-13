@@ -47,14 +47,7 @@
             UNI AP
         </div>
 
-        <!-- 3. MOBILE MENU BUTTON -->
-        <button class="mobile-menu-btn" id="mobile-menu-btn">
-            <span></span>
-            <span></span>
-            <span></span>
-        </button>
-
-        <nav class="nav-center" style="align-items: center;">
+        <nav class="nav-center">
             <a href="/dashboard" class="nav-link">Home</a>
             <div class="nav-item">
                 Category
@@ -76,20 +69,30 @@
             <a href="#newspaper-section" class="nav-link">Newspaper</a>
         </nav>
 
-        <div class="profile-container" id="profile-trigger">
-            <div class="user-avatar-small">
-                <img id="user-avatar-img" src="https://ui-avatars.com/api/?background=random&color=fff&name=User"
-                    alt="User">
-            </div>
-            <div class="dropdown-menu profile-dropdown-right">
-                <a href="/history" class="dropdown-link">📖 Reading History</a>
-                <a href="/saved" class="dropdown-link">🔖 Saved Items</a>
-                <a href="/business-intelligence" class="dropdown-link">📊 Senior Analyst Reports</a>
-                <div class="dropdown-link" id="logout-btn"
-                    style="color: var(--accent-red); cursor:pointer; display:none;">🚪 Logout</div>
-                <div class="dropdown-link" id="login-btn" style="color: var(--accent-blue); cursor:pointer;">🔑 Login
+        <div class="header-right" style="display: flex; align-items: center; gap: 1rem;">
+            <div class="profile-container" id="profile-trigger" style="border:none; padding:0;">
+                <div class="user-avatar-small">
+                    <img id="user-avatar-img" src="https://ui-avatars.com/api/?background=random&color=fff&name=User"
+                        alt="User">
+                </div>
+                <div class="dropdown-menu profile-dropdown-right">
+                    <a href="/history" class="dropdown-link">📖 Reading History</a>
+                    <a href="/saved" class="dropdown-link">🔖 Saved Items</a>
+                    <a href="/business-intelligence" class="dropdown-link">📊 Senior Analyst Reports</a>
+                    <div class="dropdown-link" id="logout-btn"
+                        style="color: var(--accent-red); cursor:pointer; display:none;">🚪 Logout</div>
+                    <div class="dropdown-link" id="login-btn" style="color: var(--accent-blue); cursor:pointer;">🔑
+                        Login
+                    </div>
                 </div>
             </div>
+
+            <!-- 3. MOBILE MENU BUTTON -->
+            <button class="mobile-menu-btn" id="mobile-menu-btn">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
         </div>
     </header>
 
