@@ -359,6 +359,9 @@ function initializeThemeToggle() {
     const currentTheme = localStorage.getItem('theme') || 'dark';
     document.documentElement.setAttribute('data-theme', currentTheme);
 
+    // Guard: Don't add if already exists
+    if (document.getElementById('theme-toggle')) return;
+
     // Create toggle button
     const themeToggle = document.createElement('button');
     themeToggle.id = 'theme-toggle';

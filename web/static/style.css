@@ -47,6 +47,22 @@
     --radius-xl: 24px;
 }
 
+[data-theme="light"] {
+    --bg-color: #F5F5F5;
+    --bg-surface: #FFFFFF;
+    --bg-glass: rgba(255, 255, 255, 0.8);
+    --border-color: rgba(0, 0, 0, 0.1);
+    --border-highlight: rgba(0, 0, 0, 0.2);
+
+    --text-primary: #111827;
+    --text-secondary: #4B5563;
+    --text-muted: #9CA3AF;
+
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.1);
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+}
+
 * {
     box-sizing: border-box;
 }
@@ -71,7 +87,7 @@ a {
    GLOBAL HEADER (Info Bar)
    ========================================= */
 .global-info-bar {
-    background: #000;
+    background: var(--bg-color);
     border-bottom: 1px solid var(--border-color);
     padding: 0 2rem;
     font-size: 0.75rem;
@@ -111,11 +127,11 @@ a {
    NAVIGATION BAR
    ========================================= */
 header {
-    background: rgba(5, 5, 5, 0.85);
+    background: var(--bg-glass);
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
     border-bottom: 1px solid var(--border-color);
-    height: 70px;
+    height: 65px;
     padding: 0 2rem;
     display: flex;
     align-items: center;
@@ -132,7 +148,7 @@ header {
     font-family: var(--font-display);
     font-size: 1.5rem;
     font-weight: 800;
-    background: linear-gradient(90deg, #fff, #9aa0a6);
+    background: linear-gradient(90deg, var(--text-primary), var(--text-secondary));
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
@@ -1104,11 +1120,13 @@ header {
     }
 
     .mobile-nav-link {
-        font-size: 1.2rem;
+        font-size: 1.1rem;
         font-weight: 600;
         color: var(--text-primary);
-        display: block;
-        padding-bottom: 0.5rem;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 1rem 0;
         border-bottom: 1px solid var(--border-color);
     }
 
@@ -1131,12 +1149,15 @@ header {
     }
 
     .mobile-cat-link {
-        background: rgba(255, 255, 255, 0.05);
-        padding: 0.8rem;
-        border-radius: 8px;
-        font-size: 0.9rem;
+        background: var(--bg-surface);
+        border: 1px solid var(--border-color);
+        padding: 1rem;
+        border-radius: 12px;
+        font-size: 0.85rem;
+        font-weight: 600;
         text-align: center;
         color: var(--text-secondary);
+        transition: all 0.2s;
     }
 
     /* Video Carousel Responsiveness */
