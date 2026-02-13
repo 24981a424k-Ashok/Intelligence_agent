@@ -243,30 +243,30 @@ async function toggleSeeMore(btn, selector) {
     // UX: Loading state
     btn.innerText = "Loading...";
     btn.disabled = true;
+    try {
+        // Use the container immediately before the button as the default target
+        let targetContainer = container;
+        const isHeadlines = selector.includes('intel-card');
 
-    // Use the container immediately before the button as the default target
-    let targetContainer = container;
-    const isHeadlines = selector.includes('intel-card');
+        // Calculate current items based on the selector
+        const currentItems = container.querySelectorAll(selector).length;
+        const response = await fetch(`/api/more-stories/${encodeURIComponent(category)}/${currentItems}`);
 
-    // Calculate current items based on the selector
-    const currentItems = container.querySelectorAll(selector).length;
-    const response = await fetch(`/api/more-stories/${encodeURIComponent(category)}/${currentItems}`);
+        if (!response.ok) throw new Error("API Failure");
+        const data = await response.json();
 
-    if (!response.ok) throw new Error("API Failure");
-    const data = await response.json();
+        if (data.stories && data.stories.length > 0) {
+            data.stories.forEach((story, idx) => {
+                const div = document.createElement('div');
 
-    if (data.stories && data.stories.length > 0) {
-        data.stories.forEach((story, idx) => {
-            const div = document.createElement('div');
+                if (isHeadlines) {
+                    // Formatting for Headlines (intel-card)
+                    div.className = 'intel-card fade-in';
+                    div.setAttribute('data-url', story.url);
+                    div.setAttribute('data-id', story.id);
+                    div.onclick = function () { if (window.handleCardClick) window.handleCardClick(this); else window.open(story.url, '_blank'); };
 
-            if (isHeadlines) {
-                // Formatting for Headlines (intel-card)
-                div.className = 'intel-card fade-in';
-                div.setAttribute('data-url', story.url);
-                div.setAttribute('data-id', story.id);
-                div.onclick = function () { if (window.handleCardClick) window.handleCardClick(this); else window.open(story.url, '_blank'); };
-
-                div.innerHTML = `
+                    div.innerHTML = `
                     <div class="intel-card-image" style="background: linear-gradient(135deg, #1e293b, #0f172a);">
                         <button class="save-btn" onclick="saveArticle(event, '${story.id}')">
                             <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
@@ -301,14 +301,14 @@ async function toggleSeeMore(btn, selector) {
                         <span style="font-size:0.8rem; color:var(--text-secondary);">AI Analysis • ${story.time_ago || 'Just Now'}</span>
                     </div>
                 `;
-            } else {
-                // Formatting for Trending (trend-card)
-                div.className = 'trend-card fade-in';
-                div.setAttribute('data-url', story.url);
-                div.setAttribute('data-id', story.id);
-                div.onclick = function () { if (window.handleCardClick) window.handleCardClick(this); else window.open(story.url, '_blank'); };
+                } else {
+                    // Formatting for Trending (trend-card)
+                    div.className = 'trend-card fade-in';
+                    div.setAttribute('data-url', story.url);
+                    div.setAttribute('data-id', story.id);
+                    div.onclick = function () { if (window.handleCardClick) window.handleCardClick(this); else window.open(story.url, '_blank'); };
 
-                div.innerHTML = `
+                    div.innerHTML = `
                     <span class="trend-badge">MORE INTEL</span>
                     <h4 style="margin:0 0 0.5rem 0; font-size:1rem; color: var(--text-primary); font-weight: 600;">${story.title}</h4>
                     <div style="display:flex; justify-content:space-between; font-size:0.75rem; color:var(--text-secondary); margin-top: 1rem;">
@@ -316,29 +316,29 @@ async function toggleSeeMore(btn, selector) {
                         <span>ANALYSIS</span>
                     </div>
                 `;
-            }
-            targetContainer.appendChild(div);
-        });
+                }
+                targetContainer.appendChild(div);
+            });
 
-        // Update Button State
-        if (data.has_more) {
-            btn.innerText = "See More";
-            btn.disabled = false;
+            // Update Button State
+            if (data.has_more) {
+                btn.innerText = "See More";
+                btn.disabled = false;
+            } else {
+                btn.innerText = "No More Stories";
+                btn.style.opacity = "0.5";
+                btn.disabled = true;
+            }
         } else {
             btn.innerText = "No More Stories";
             btn.style.opacity = "0.5";
             btn.disabled = true;
         }
-    } else {
-        btn.innerText = "No More Stories";
-        btn.style.opacity = "0.5";
-        btn.disabled = true;
+    } catch (e) {
+        console.error("Error fetching more stories", e);
+        btn.innerText = "Error - Retry";
+        btn.disabled = false;
     }
-} catch (e) {
-    console.error("Error fetching more stories", e);
-    btn.innerText = "Error - Retry";
-    btn.disabled = false;
-}
 }
 
 function expandBrief(btn) {

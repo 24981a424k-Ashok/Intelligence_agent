@@ -245,7 +245,7 @@
                 {% for story in (digest.top_stories or [])[:6] %}
                 <div class="intel-card" data-url="{{ story.url }}" data-id="{{ story.id }}"
                     onclick="handleCardClick(this)">
-                    <!-- ... card content ... -->
+                    {% set global_index = loop.index0 %}
                     {% include 'partials/intel_card.html' with context %}
                 </div>
                 {% endfor %}
@@ -254,7 +254,7 @@
                 {% for story in (digest.top_stories or [])[6:] %}
                 <div class="intel-card hidden-item" data-url="{{ story.url }}" data-id="{{ story.id }}"
                     onclick="handleCardClick(this)" style="display:none;">
-                    <!-- ... card content ... -->
+                    {% set global_index = loop.index0 + 6 %}
                     {% include 'partials/intel_card.html' with context %}
                 </div>
                 {% endfor %}

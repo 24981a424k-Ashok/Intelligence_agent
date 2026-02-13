@@ -12,7 +12,7 @@
         replace('"', "") %}
         <!-- Fallback Script for this specific card -->
         <img src="{{ bg_image or '#' }}" style="display:none;" data-cat="{{ clean_category }}"
-            onerror="this.parentElement.style.backgroundImage = 'url(' + getCategoryFallback('{{ clean_category }}', '{{ clean_title }}', parseInt('{{ loop.index0 }}')) + ')'">
+            onerror="this.parentElement.style.backgroundImage = 'url(' + getCategoryFallback('{{ clean_category }}', '{{ clean_title }}', parseInt('{{ global_index }}')) + ')'">
 
         <button class=" save-btn" onclick="saveArticle(event, '{{ story.id }}')">
             <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
