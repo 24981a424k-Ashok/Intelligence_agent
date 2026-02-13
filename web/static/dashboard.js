@@ -244,23 +244,65 @@ async function toggleSeeMore(btn, selector) {
     btn.innerText = "Loading...";
     btn.disabled = true;
 
-    try {
-        // Calculate offset based on items already in the target container
-        // Target container is now the Trending Grid as per user request
-        const targetContainer = document.querySelector('.trending-grid');
-        if (!targetContainer) throw new Error("Trending section not found");
+    // Use the container immediately before the button as the default target
+    let targetContainer = container;
+    const isHeadlines = selector.includes('intel-card');
 
-        const currentItems = container.querySelectorAll(selector).length;
-        const response = await fetch(`/api/more-stories/${encodeURIComponent(category)}/${currentItems}`);
+    // Calculate current items based on the selector
+    const currentItems = container.querySelectorAll(selector).length;
+    const response = await fetch(`/api/more-stories/${encodeURIComponent(category)}/${currentItems}`);
 
-        if (!response.ok) throw new Error("API Failure");
-        const data = await response.json();
+    if (!response.ok) throw new Error("API Failure");
+    const data = await response.json();
 
-        if (data.stories && data.stories.length > 0) {
-            data.stories.forEach((story, idx) => {
-                const globalIdx = currentItems + idx;
-                const div = document.createElement('div');
-                // Use trend-card style to fit in trending section
+    if (data.stories && data.stories.length > 0) {
+        data.stories.forEach((story, idx) => {
+            const div = document.createElement('div');
+
+            if (isHeadlines) {
+                // Formatting for Headlines (intel-card)
+                div.className = 'intel-card fade-in';
+                div.setAttribute('data-url', story.url);
+                div.setAttribute('data-id', story.id);
+                div.onclick = function () { if (window.handleCardClick) window.handleCardClick(this); else window.open(story.url, '_blank'); };
+
+                div.innerHTML = `
+                    <div class="intel-card-image" style="background: linear-gradient(135deg, #1e293b, #0f172a);">
+                        <button class="save-btn" onclick="saveArticle(event, '${story.id}')">
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                                <path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z" />
+                            </svg>
+                        </button>
+                    </div>
+                    <div class="intel-header">
+                        <div style="display:flex; justify-content:space-between; margin-bottom:0.5rem;">
+                            <span style="color:var(--accent-blue); font-size:0.8rem; font-weight:700;">VERIFIED: ${story.source_name}</span>
+                            <span style="color:var(--text-secondary); font-size:0.8rem;">${story.bias || 'Neutral'}</span>
+                        </div>
+                        <h3 class="intel-title">${story.title}</h3>
+                        <div style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-bottom:1rem;">
+                            ${(story.tags || []).slice(0, 3).map(tag => `<span style="background:rgba(255,255,255,0.1); color:white; padding:4px 10px; border-radius:4px; font-size:0.7rem; font-weight:700; text-transform:uppercase;">${tag}</span>`).join('')}
+                        </div>
+                    </div>
+                    <div class="intel-section">
+                        <ul>
+                            ${(story.bullets || []).slice(0, 3).map(b => `<li>${b}</li>`).join('')}
+                        </ul>
+                    </div>
+                    <div class="intel-section" style="background:rgba(59, 130, 246, 0.05); border-left:3px solid var(--accent-blue);">
+                        <h4 style="color:var(--accent-blue);">👥 Who is Affected</h4>
+                        <p style="font-size:0.9rem; color:#cbd5e1;">${story.affected || 'General Public'}</p>
+                    </div>
+                    <div class="intel-section" style="background:rgba(251, 188, 4, 0.05); border-left:3px solid var(--accent-gold);">
+                        <h4 style="color:var(--accent-gold);">⚡ Why It Matters</h4>
+                        <p style="font-size:0.9rem; color:#cbd5e1;">${story.why || 'Significant development.'}</p>
+                    </div>
+                    <div class="intel-footer">
+                        <span style="font-size:0.8rem; color:var(--text-secondary);">AI Analysis • ${story.time_ago || 'Just Now'}</span>
+                    </div>
+                `;
+            } else {
+                // Formatting for Trending (trend-card)
                 div.className = 'trend-card fade-in';
                 div.setAttribute('data-url', story.url);
                 div.setAttribute('data-id', story.id);
@@ -274,28 +316,29 @@ async function toggleSeeMore(btn, selector) {
                         <span>ANALYSIS</span>
                     </div>
                 `;
-                targetContainer.appendChild(div);
-            });
-
-            // Update Button State
-            if (data.has_more) {
-                btn.innerText = "See More";
-                btn.disabled = false;
-            } else {
-                btn.innerText = "No More Stories";
-                btn.style.opacity = "0.5";
-                btn.disabled = true;
             }
+            targetContainer.appendChild(div);
+        });
+
+        // Update Button State
+        if (data.has_more) {
+            btn.innerText = "See More";
+            btn.disabled = false;
         } else {
             btn.innerText = "No More Stories";
             btn.style.opacity = "0.5";
             btn.disabled = true;
         }
-    } catch (e) {
-        console.error("Error fetching more stories", e);
-        btn.innerText = "Error - Retry";
-        btn.disabled = false;
+    } else {
+        btn.innerText = "No More Stories";
+        btn.style.opacity = "0.5";
+        btn.disabled = true;
     }
+} catch (e) {
+    console.error("Error fetching more stories", e);
+    btn.innerText = "Error - Retry";
+    btn.disabled = false;
+}
 }
 
 function expandBrief(btn) {
