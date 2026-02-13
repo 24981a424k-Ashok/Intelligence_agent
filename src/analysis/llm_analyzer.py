@@ -349,19 +349,19 @@ IMPORTANT: Output ONLY valid JSON.
         category = "Other News"
         
         keywords = {
-            "Technology": ["tech", "apple", "google", "microsoft", "cyber", "software", "app"],
-            "AI & Machine Learning": ["ai", "gpt", "llm", "intelligence", "neural", "robot"],
-            "Sports": ["sport", "cricket", "football", "nba", "score", "cup", "match"],
-            "Politics": ["election", "parliament", "senate", "minister", "president", "policy"],
-            "Business & Economy": ["market", "stock", "economy", "trade", "bank", "finance", "ceo"],
-            "World News": ["war", "un", "global", "china", "europe", "ukraine", "gaza", "russia"],
-            "India / Local News": ["india", "delhi", "mumbai", "modi", "bjp", "bollywood"],
-            "Science & Health": ["space", "nasa", "doctor", "virus", "cancer", "health", "discovery"],
-            "Education": ["school", "university", "student", "college", "exam"],
-            "Entertainment": ["movie", "film", "star", "celebrity", "actor", "music"],
-            "Environment & Climate": ["climate", "environment", "global warming", "sustainability"],
-            "Lifestyle & Wellness": ["travel", "wellness", "lifestyle", "fashion", "food"],
-            "Defense & Security": ["defense", "military", "security", "warfare", "pentagon", "nato"]
+            "Technology": ["tech", "apple", "google", "microsoft", "cyber", "software", "app", "chip", "semiconductor"],
+            "AI & Machine Learning": ["ai", "gpt", "llm", "intelligence", "neural", "robot", "deep learning"],
+            "Sports": ["sport", "cricket", "football", "nba", "score", "cup", "match", "t20", "ipl", "tennis"],
+            "Politics": ["election", "parliament", "senate", "minister", "president", "policy", "vote", "govt"],
+            "Business & Economy": ["market", "stock", "economy", "trade", "bank", "finance", "ceo", "startup", "funding"],
+            "World News": ["war", "un", "global", "china", "europe", "ukraine", "gaza", "russia", "israel", "nuclear"],
+            "India / Local News": ["india", "delhi", "mumbai", "modi", "bjp", "bollywood", "indian"],
+            "Science & Health": ["space", "nasa", "doctor", "virus", "cancer", "health", "discovery", "asteroid", "bennu", "mars", "medical"],
+            "Education": ["school", "university", "student", "college", "exam", "learning", "degree"],
+            "Entertainment": ["movie", "film", "star", "celebrity", "actor", "music", "award", "oscar"],
+            "Environment & Climate": ["climate", "environment", "global warming", "sustainability", "emission", "green"],
+            "Lifestyle & Wellness": ["travel", "wellness", "lifestyle", "fashion", "food", "health tips"],
+            "Defense & Security": ["defense", "military", "security", "warfare", "pentagon", "nato", "army", "navy"]
         }
         
         for cat, keys in keywords.items():
@@ -375,34 +375,44 @@ IMPORTANT: Output ONLY valid JSON.
             "Politics": "Government Officials, Policy Makers, and Citizens",
             "Technology": "Tech Developers, Industry Competitors, and Early Adopters",
             "Business & Economy": "Investors, Corporate Leaders, and Market Analysts",
-            "Science & Health": "Researchers, Healthcare Professionals, and Patients",
+            "Science & Health": "Scientific Researchers, Healthcare Professionals, and the Global Community",
             "World News": "Diplomats, Global Organizations, and Affected Communities",
-            "Entertainment": "Media Producers, Fans, and Industry Stakeholders"
+            "Entertainment": "Media Producers, Fans, and Industry Stakeholders",
+            "Environment & Climate": "Environmentalists, Policy Makers, and Future Generations",
+            "Education": "Students, Educators, and Academic Institutions",
+            "Defense & Security": "Military Personnel, Defense Analysts, and Security Experts"
         }
-        who_is_affected = affected_groups.get(category, "Industry Leaders, Investors, and Consumers")
+        who_is_affected = affected_groups.get(category, "General Public, Analysts, and Industry Observers")
         
-        # Dynamic why it matters
-        why_it_matters = f"The development of '{title[:60]}...' signals a major shift in {category} that could redefine current industry standards."
-        if category == "Sports":
+        # Dynamic why it matters based on category type
+        if category in ["Business & Economy", "Technology", "AI & Machine Learning"]:
+            why_it_matters = f"The development of '{title[:60]}...' signals a major shift in {category} that could redefine current industry standards."
+        elif category == "Sports":
             why_it_matters = f"This update on '{title[:60]}...' is critical for tournament standings and team strategic planning."
         elif category == "Politics":
             why_it_matters = f"The implications of '{title[:60]}...' are being closely watched by legislative bodies and international observers."
+        elif category == "Science & Health":
+            why_it_matters = f"This discovery concerning '{title[:60]}...' significantly advances our understanding of {category} and its future applications."
+        elif category == "Environment & Climate":
+            why_it_matters = f"The findings in '{title[:60]}...' highlight urgent environmental shifts and the necessity for sustainable policy changes."
+        else:
+             why_it_matters = f"This update regarding '{title[:60]}...' provides essential context for ongoing developments within the {category} sector."
 
         return {
             "summary_bullets": [
-                f"Key insight: {title[:80]}...",
-                f"Analysis identifies critical strategic triggers within {category}.",
-                "Major stakeholders are recalibrating their positions following this update.",
-                f"Potential for ripple effects throughout the {category} ecosystem.",
-                "Long-term structural implications are currently being assessed."
+                f"Core development: {title[:80]}...",
+                f"This update highlights a pivotal moment for {category} stakeholders.",
+                "Observers are noting significant implications for future planning and policy.",
+                f"Potential for extensive ripple effects across the {category} landscape.",
+                "Long-term structural changes are anticipated as a result of this development."
             ],
             "category": category,
             "impact_score": 8,
-            "impact_tags": [category, "Critical Signal"],
+            "impact_tags": [category, "Analytical Insight"],
             "bias_rating": "Neutral",
             "why_it_matters": why_it_matters,
             "who_is_affected": who_is_affected,
-            "short_term_impact": f"Immediate tactical adjustments within the {category} sector.",
-            "long_term_impact": f"Re-alignment of long-term goals and strategic focus for {category} leaders.",
+            "short_term_impact": f"Immediate tactical adjustments and heightened awareness in {category}.",
+            "long_term_impact": f"Strategic re-alignment and fundamental shifts within the {category} ecosystem.",
             "sentiment": "Neutral"
         }
