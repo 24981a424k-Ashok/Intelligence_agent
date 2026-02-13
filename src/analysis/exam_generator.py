@@ -101,39 +101,87 @@ class ExamGenerator:
             
             # Fallback: Load from question bank
             try:
+                # Robust path handling
                 base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
                 bank_path = os.path.join(base_dir, 'data', 'question_bank.json')
-                print(f"DEBUG: Attempting to load question bank from: {bank_path}")
                 
-                with open(bank_path, 'r', encoding='utf-8') as f:
-                    all_questions = json.load(f)
-                
-                # Randomly select 15 questions
-                selected_questions = random.sample(all_questions, min(len(all_questions), 15))
-                
-                # Re-index ids
-                for idx, q in enumerate(selected_questions):
-                    q['id'] = idx + 1
+                if os.path.exists(bank_path):
+                    with open(bank_path, 'r', encoding='utf-8') as f:
+                        all_questions = json.load(f)
                     
-                return {
-                    "title": f"Daily Mock Test - General Awareness - {datetime.now().strftime('%d %b %Y')}",
-                    "questions": selected_questions
-                }
+                    # Randomly select 15 questions
+                    selected_questions = random.sample(all_questions, min(len(all_questions), 15))
+                    
+                    # Re-index ids
+                    for idx, q in enumerate(selected_questions):
+                        q['id'] = idx + 1
+                        
+                    return {
+                        "title": f"Daily Mock Test - General Awareness - {datetime.now().strftime('%d %b %Y')}",
+                        "questions": selected_questions
+                    }
+                else:
+                    logging.warning(f"Question bank not found at {bank_path}. Using hardcoded fallback.")
+                    raise FileNotFoundError("Bank missing")
+
             except Exception as bank_error:
                 logging.error(f"Fallback Bank Error: {bank_error}")
-                # Ultimate fallback (if even the file fails)
+                
+                # Enhanced Ultimate Fallback List (minimum 5 varied questions)
+                fallback_questions = [
+                    {
+                        "id": 1,
+                        "type": "MCQ",
+                        "section": "General",
+                        "question": "Which organization releases the 'World Economic Outlook'?",
+                        "options": ["IMF", "World Bank", "WEF", "ADB"],
+                        "correct_answer": "IMF",
+                        "explanation": "The IMF releases the WEO report."
+                    },
+                    {
+                        "id": 2,
+                        "type": "MCQ",
+                        "section": "Science",
+                        "question": "Which NASA mission recently returned asteroid samples to Earth?",
+                        "options": ["OSIRIS-REx", "Juno", "Artemis", "New Horizons"],
+                        "correct_answer": "OSIRIS-REx",
+                        "explanation": "OSIRIS-REx returned samples from asteroid Bennu in 2023."
+                    },
+                    {
+                        "id": 3,
+                        "type": "MCQ",
+                        "section": "National",
+                        "question": "India's G20 Presidency theme was:",
+                        "options": ["One Earth One Family", "Digital India", "Vasudhaiva Kutumbakum", "Atmanirbhar Bharat"],
+                        "correct_answer": "Vasudhaiva Kutumbakum",
+                        "explanation": "The theme was Vasudhaiva Kutumbakum or One Earth One Family One Future."
+                    },
+                    {
+                        "id": 4,
+                        "type": "MCQ",
+                        "section": "Sports",
+                        "question": "Who won the Men's ODI World Cup 2023?",
+                        "options": ["India", "Australia", "England", "New Zealand"],
+                        "correct_answer": "Australia",
+                        "explanation": "Australia won their 6th title in 2023."
+                    },
+                    {
+                        "id": 5,
+                        "type": "MCQ",
+                        "section": "Economy",
+                        "question": "What is the primary focus of the PM-KUSUM scheme?",
+                        "options": ["Education", "Solar Energy for Farmers", "Railways", "Textiles"],
+                        "correct_answer": "Solar Energy for Farmers",
+                        "explanation": "PM-KUSUM focuses on solar energy and water security for farmers."
+                    }
+                ]
+                
+                random.shuffle(fallback_questions)
+                for idx, q in enumerate(fallback_questions):
+                    q['id'] = idx + 1
+
                 return {
-                    "title": f"Daily Mock Test (Final Fallback)",
-                    "questions": [
-                         {
-                            "id": 1,
-                            "type": "MCQ",
-                            "section": "General",
-                            "question": "Which organization releases the 'World Economic Outlook'?",
-                            "options": ["IMF", "World Bank", "WEF", "ADB"],
-                            "correct_answer": "IMF",
-                            "explanation": "The IMF releases the WEO report."
-                         }
-                    ]
+                    "title": f"Daily Mock Test (Smart Fallback) - {datetime.now().strftime('%d %b %Y')}",
+                    "questions": fallback_questions
                 }
 
