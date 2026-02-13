@@ -369,21 +369,40 @@ IMPORTANT: Output ONLY valid JSON.
                 category = cat
                 break
                 
+        # Differentiate affected groups based on category
+        affected_groups = {
+            "Sports": "Athletes, Teams, Coaches, and Sports Fans",
+            "Politics": "Government Officials, Policy Makers, and Citizens",
+            "Technology": "Tech Developers, Industry Competitors, and Early Adopters",
+            "Business & Economy": "Investors, Corporate Leaders, and Market Analysts",
+            "Science & Health": "Researchers, Healthcare Professionals, and Patients",
+            "World News": "Diplomats, Global Organizations, and Affected Communities",
+            "Entertainment": "Media Producers, Fans, and Industry Stakeholders"
+        }
+        who_is_affected = affected_groups.get(category, "Industry Leaders, Investors, and Consumers")
+        
+        # Dynamic why it matters
+        why_it_matters = f"The development of '{title[:60]}...' signals a major shift in {category} that could redefine current industry standards."
+        if category == "Sports":
+            why_it_matters = f"This update on '{title[:60]}...' is critical for tournament standings and team strategic planning."
+        elif category == "Politics":
+            why_it_matters = f"The implications of '{title[:60]}...' are being closely watched by legislative bodies and international observers."
+
         return {
             "summary_bullets": [
-                f"Critical update: {title[:80]}...",
-                f"Impact analysis suggests strategic shifts in {category}.",
-                "Industry stakeholders are closely monitoring this development.",
-                "Short-term market volatility may increase due to this news.",
-                "Long-term policy implications are being evaluated."
+                f"Key insight: {title[:80]}...",
+                f"Analysis identifies critical strategic triggers within {category}.",
+                "Major stakeholders are recalibrating their positions following this update.",
+                f"Potential for ripple effects throughout the {category} ecosystem.",
+                "Long-term structural implications are currently being assessed."
             ],
             "category": category,
             "impact_score": 8,
-            "impact_tags": [category, "Market Signal"],
+            "impact_tags": [category, "Critical Signal"],
             "bias_rating": "Neutral",
-            "why_it_matters": f"This '{category}' update is a significant signal for market direction and strategic planning.",
-            "who_is_affected": "Industry Leaders, Investors, and Consumers",
-            "short_term_impact": "Immediate industry awareness and potential stock/policy adjustments.",
-            "long_term_impact": "Structural shifts in the sector and redefined competitive landscapes.",
+            "why_it_matters": why_it_matters,
+            "who_is_affected": who_is_affected,
+            "short_term_impact": f"Immediate tactical adjustments within the {category} sector.",
+            "long_term_impact": f"Re-alignment of long-term goals and strategic focus for {category} leaders.",
             "sentiment": "Neutral"
         }
