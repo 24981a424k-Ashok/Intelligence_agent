@@ -189,15 +189,33 @@ function getCategoryFallback(category, seed = '', index = 0) {
 
     // Improved String Hashing (djb2-like) for better variance
     let hash = 5381;
-    for (let i = 0; i < seed.length; i++) {
-        hash = (hash * 33) ^ seed.charCodeAt(i);
+    const combinedSeed = seed + index; // Mix index into seed for per-slot uniqueness
+    for (let i = 0; i < combinedSeed.length; i++) {
+        hash = (hash * 33) ^ combinedSeed.charCodeAt(i);
     }
 
-    // Mix position index with hash to avoid adjacent items looking same if same text (unlikely but safe)
-    // Absolute value and mod
-    const finalIndex = (Math.abs(hash) + index) % targetList.length;
+    const finalIndex = Math.abs(hash) % targetList.length;
     return targetList[finalIndex];
 }
+
+/**
+ * Global image error handler called from HTML onerror attributes
+ */
+function handleImageError(img, type, seed, index) {
+    if (img.dataset.failed) return; // Prevent infinite loops
+    img.dataset.failed = "true";
+
+    const fallback = getCategoryFallback(type, seed, index);
+    console.log(`Fallback triggered for ${type}: ${seed} -> ${fallback}`);
+
+    const parent = img.parentElement;
+    if (parent && parent.classList.contains('breaking-img-top') || parent.classList.contains('mini-img') || parent.classList.contains('side-img')) {
+        parent.style.backgroundImage = `url('${fallback}')`;
+    } else {
+        img.src = fallback;
+    }
+}
+window.handleImageError = handleImageError;
 
 // ===== SEE MORE FUNCTIONALITY (API INTEGRATED) =====
 function initializeSeeMore() {

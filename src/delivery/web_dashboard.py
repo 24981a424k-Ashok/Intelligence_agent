@@ -69,10 +69,12 @@ FALLBACK_IMAGES = [
 ]
 
 def get_fallback_image(seed: str) -> str:
-    """Deterministically select a fallback image based on string hash"""
+    """Deterministically select a fallback image based on djb2 hash"""
     if not seed: return FALLBACK_IMAGES[0]
-    hash_val = sum(ord(c) for c in seed)
-    return FALLBACK_IMAGES[hash_val % len(FALLBACK_IMAGES)]
+    hash_val = 5381
+    for char in seed:
+        hash_val = ((hash_val << 5) + hash_val) + ord(char)
+    return FALLBACK_IMAGES[abs(hash_val) % len(FALLBACK_IMAGES)]
 
 def get_db():
     db = SessionLocal()
@@ -113,41 +115,39 @@ async def dashboard(request: Request, category: str = None, country: str = None,
 
     digest_data = copy.deepcopy(latest_digest.content_json) if latest_digest else None
     
-    # Filter by Country if requested (Takes priority over category)
+    # 1. Standardize Country Context
     selected_country = country
     selected_category = category
     selected_country_name = None
-
-    if digest_data and country:
-        countries_data = digest_data.get("countries", {})
-        # Case insensitive match for keys
-        target_country = country.strip().capitalize()
-        # Handle common code to name mapping
-        code_map = {
+    
+    def normalize_country(c):
+        if not c: return None, []
+        mapping = {
             "jp": "Japan", "cn": "China", "us": "USA", "in": "India", "gb": "UK",
             "ru": "Russia", "de": "Germany", "fr": "France", "au": "Australia", "sg": "Singapore", "ae": "UAE"
         }
-        if country.lower() in code_map: 
-            target_country = code_map[country.lower()]
-        
-        selected_country_name = target_country
+        val = c.lower().strip()
+        name = mapping.get(val, c.capitalize())
+        # Return name and list of potential match keys
+        return name, [val, name.lower(), name]
 
+    if digest_data and country:
+        target_name, match_keys = normalize_country(country)
+        selected_country_name = target_name
+        
+        # 2. Filter Top Stories
+        countries_data = digest_data.get("countries", {})
         country_stories = []
-        # Find matching stories by checking name and code
         for k, v in countries_data.items():
-            if k.lower() == country.lower() or k.lower() == target_country.lower():
+            if k.lower() in match_keys:
                 country_stories = v
                 break
         
-        # Also check Top Stories directly for country tag
+        # Fallback for stories tagged specifically but not in node bucket
         if not country_stories and "top_stories" in digest_data:
-            country_stories = [
-                s for s in digest_data["top_stories"] 
-                if s.get("country") == target_country or s.get("country") == target_country.lower() or s.get("country") == country.lower()
-            ]
+            country_stories = [s for s in digest_data["top_stories"] if s.get("country") in match_keys]
 
         if country_stories:
-            # Normalize format to match top_stories
             normalized_stories = []
             for s in country_stories:
                 normalized_stories.append({
@@ -166,32 +166,18 @@ async def dashboard(request: Request, category: str = None, country: str = None,
                     "time_ago": s.get("time_ago", "Just Now")
                 })
             digest_data["top_stories"] = normalized_stories
-
-            # 1. Filter Breaking News
-            if "breaking_news" in digest_data:
-                digest_data["breaking_news"] = [
-                    item for item in digest_data["breaking_news"] 
-                    if item.get("country") == target_country or item.get("country") == target_country.lower() or item.get("country") == country.lower()
-                ]
-            
-            # 2. Filter Brief
-            if "brief" in digest_data:
-                digest_data["brief"] = [
-                    item for item in digest_data["brief"] 
-                    if item.get("country") == target_country or item.get("country") == target_country.lower() or item.get("country") == country.lower()
-                ]
-
-            # 3. Filter Trending
-            if "trending_news" in digest_data:
-                digest_data["trending_news"] = [
-                    item for item in digest_data["trending_news"] 
-                    if item.get("country") == target_country or item.get("country") == target_country.lower() or item.get("country") == country.lower()
-                ]
-            
-            # Set Trending Title
-            trending_title = f"Trending in {target_country}"
         else:
-            trending_title = f"Nodes: {target_country} (Initializing...)"
+            digest_data["top_stories"] = [] # Force empty rather than global
+            
+        # 3. Filter ALL OTHER SECTIONS strictly
+        for section in ["breaking_news", "brief", "trending_news"]:
+            if section in digest_data:
+                digest_data[section] = [
+                    item for item in digest_data[section]
+                    if (item.get("country") in match_keys) or (item.get("country_name") in match_keys)
+                ]
+        
+        trending_title = f"Trending in {target_name}"
 
 
     # Filter by Category if requested (if country is null)
