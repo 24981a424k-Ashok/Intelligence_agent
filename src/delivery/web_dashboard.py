@@ -169,9 +169,11 @@ async def dashboard(request: Request, category: str = None, country: str = None,
             digest_data["top_stories"] = normalized_stories
             trending_title = f"Trending in {target_name}"
         else:
-            # NO regional stories? Show message rather than global fallback which looks like a bug
+            # NO regional stories? 
+            # We will show a clear message and offer global results as a SECONDARY option in the UI
             digest_data["top_stories"] = [] 
-            trending_title = f"{target_name} Node: Collecting Intel..."
+            digest_data["is_empty_regional"] = True
+            trending_title = f"{target_name} Node: Gathering Intelligence..."
             
         # 3. Filter ALL OTHER SECTIONS strictly (Breaking/Trending/Brief)
         for section in ["breaking_news", "brief", "trending_news"]:

@@ -283,9 +283,31 @@
                     {% endif %}
                 </h2>
                 <div class="header-meta">
-                    {% if selected_category %} Curated Category Feed {% else %} Global Intelligence {% endif %}
+                    {% if selected_country %}
+                    Regional intelligence feed for {{ selected_country_name or selected_country.capitalize() }}
+                    {% elif selected_category %}
+                    Curated intelligence: {{ selected_category.capitalize() }}
+                    {% else %}
+                    Global Intelligence Node
+                    {% endif %}
                 </div>
             </div>
+
+            {% if digest.is_empty_regional %}
+            <div class="empty-node-notice fade-in"
+                style="background: rgba(59, 130, 246, 0.1); border: 1px solid var(--accent-blue); padding: 2rem; border-radius: 12px; margin-bottom: 2rem; text-align: center;">
+                <h3 style="color: var(--accent-blue); margin-bottom: 0.5rem;">📡 Intelligence Feed Under Maintenance
+                </h3>
+                <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">Specific intelligence for this node is
+                    being processed in the current 15-minute cycle.</p>
+                <div style="display: flex; gap: 1rem; justify-content: center;">
+                    <a href="/dashboard" class="see-more-btn"
+                        style="text-decoration: none; display: inline-block;">Return to Global</a>
+                    <button class="see-more-btn" onclick="window.location.reload()"
+                        style="background: var(--bg-hover);">Try Refresh</button>
+                </div>
+            </div>
+            {% endif %}
             <div class="headlines-grid">
                 {% for story in (digest.top_stories or [])[:6] %}
                 <div class="intel-card" data-url="{{ story.url }}" data-id="{{ story.id }}"
