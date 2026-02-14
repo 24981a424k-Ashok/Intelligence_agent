@@ -196,14 +196,16 @@ async def dashboard(request: Request, category: str = None, country: str = None,
             trending_title = f"{target_name} Node: Regional Intel Pending"
             
         # 3. Filter ALL OTHER SECTIONS strictly (Breaking/Trending/Brief)
-        for section in ["breaking_news", "brief", "trending_news"]:
-            if section in digest_data:
-                filtered = [
-                    item for item in digest_data[section]
-                    if (item.get("country") in match_keys) or (item.get("country_name") in match_keys)
-                ]
-                # If section becomes empty after filter, hide it or keep it empty
-                digest_data[section] = filtered
+        # ONLY if we actually found regional stories. If we are in fallback mode, 
+        # we want to keep the global articles visible.
+        if not digest_data.get("is_empty_regional"):
+            for section in ["breaking_news", "brief", "trending_news"]:
+                if section in digest_data:
+                    filtered = [
+                        item for item in digest_data[section]
+                        if (item.get("country") in match_keys) or (item.get("country_name") in match_keys)
+                    ]
+                    digest_data[section] = filtered
 
 
     # Filter by Category if requested (if country is null)
