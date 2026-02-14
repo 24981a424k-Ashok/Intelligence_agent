@@ -5,10 +5,17 @@ from loguru import logger
 
 def initialize_firebase():
     """
-    Initialize Firebase Admin SDK using service account or default credentials.
-    Expects FIREBASE_SERVICE_ACCOUNT_PATH environment variable for local testing.
+    Initialize Firebase Admin SDK idempotently.
     """
     try:
+        # Check if initialized already
+        try:
+            firebase_admin.get_app()
+            logger.info("Firebase already initialized.")
+            return
+        except ValueError:
+            pass # Not initialized, proceed
+            
         if not firebase_admin._apps:
             # 1. Try JSON string from ENV (for Cloud/Render)
             service_account_json = os.getenv("FIREBASE_SERVICE_ACCOUNT_JSON")

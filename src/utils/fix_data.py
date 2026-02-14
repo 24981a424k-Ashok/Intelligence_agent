@@ -16,14 +16,35 @@ logger = logging.getLogger(__name__)
 def fix_data():
     session = SessionLocal()
     try:
-        # 1. Fix "0 min ago" (recency_minutes)
+        # 1. Fix Repetition (Deduplication) FIRST
+        logger.info("Checking for duplicates...")
+        unique_titles = set()
+        items_to_delete = []
+        
+        # We iterate and keep the *first* (newest by ID desc) one we see
+        all_items_dedupe = session.query(BreakingNews).order_by(BreakingNews.id.desc()).all()
+        
+        for item in all_items_dedupe:
+            title = item.breaking_headline or ""
+            if title in unique_titles:
+                items_to_delete.append(item.id)
+            else:
+                unique_titles.add(title)
+                
+        if items_to_delete:
+            logger.info(f"Found {len(items_to_delete)} duplicates to delete.")
+            session.query(BreakingNews).filter(BreakingNews.id.in_(items_to_delete)).delete(synchronize_session='fetch')
+            session.flush() # Sync with DB
+        else:
+            logger.info("No duplicates found.")
+
+        # 2. Fix "0 min ago" (recency_minutes)
         logger.info("Fixing timestamps...")
-        breaking_items = session.query(BreakingNews).all()
+        # Re-fetch remaining items after deduplication
+        remaining_items = session.query(BreakingNews).all()
         updated_count = 0
         
-        for item in breaking_items:
-            # Calculate actual recency
-            # Try to get published_at from verified news relation or fallback to created_at
+        for item in remaining_items:
             ref_time = item.created_at
             if item.verified_news and item.verified_news.published_at:
                 ref_time = item.verified_news.published_at
@@ -38,35 +59,6 @@ def fix_data():
                     updated_count += 1
 
         logger.info(f"Updated timestamps for {updated_count} items.")
-
-        # 2. Fix Repetition (Deduplication)
-        logger.info("Checking for duplicates...")
-        # Group by headline/title
-        unique_titles = set()
-        items_to_delete = []
-        
-        # We iterate and keep the *first* one we see, mark others for deletion
-        # Better: keep the one with the best data (e.g. valid image)
-        
-        # Re-query to be safe
-        all_items = session.query(BreakingNews).order_by(BreakingNews.id.desc()).all() # Keep newest? Or oldest? 
-        # Usually keeping newest is better if they are updates, but for pure duplicates, doesn't matter.
-        
-        kept_count = 0
-        for item in all_items:
-            title = item.breaking_headline or ""
-            if title in unique_titles:
-                items_to_delete.append(item.id)
-            else:
-                unique_titles.add(title)
-                kept_count += 1
-                
-        if items_to_delete:
-            logger.info(f"Found {len(items_to_delete)} duplicates to delete.")
-            session.query(BreakingNews).filter(BreakingNews.id.in_(items_to_delete)).delete(synchronize_session=False)
-        else:
-            logger.info("No duplicates found.")
-
         session.commit()
         logger.info("Database fix complete.")
         
