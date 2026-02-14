@@ -25,6 +25,8 @@ async def run_news_cycle():
         # 1. Collect
         logger.info("Step 1: Collection")
         
+        api_count = rss_count = twitter_count = trending_count = gnews_count = 0
+        
         api_collector = NewsCollector()
         api_count = api_collector.fetch_recent_news()
         
