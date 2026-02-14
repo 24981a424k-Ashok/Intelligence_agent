@@ -68,7 +68,17 @@ RSS_FEEDS = {
 
     # 14. Defense & Security
     "defense-news": "https://www.defensenews.com/arc/outboundfeeds/rss/category/home/",
-    "military": "https://www.militarytimes.com/arc/outboundfeeds/rss/category/home/"
+    "military": "https://www.militarytimes.com/arc/outboundfeeds/rss/category/home/",
+
+    # 15. Regional Fallbacks (To fix empty nodes)
+    "scmp-china": "https://www.scmp.com/rss/318199/feed",  # China
+    "japan-times": "https://www.japantimes.co.jp/feed/",   # Japan
+    "guardian-uk": "https://www.theguardian.com/uk/rss",   # UK
+    "dw-germany": "https://rss.dw.com/xml/rss-en-ger-news", # Germany
+    "france24": "https://www.france24.com/en/rss",         # France
+    "abc-australia": "https://www.abc.net.au/news/feed/5112088/rss.xml", # Australia
+    "moscow-times": "https://www.themoscowtimes.com/rss/news", # Russia
+    "straitstimes-singapore": "https://www.straitstimes.com/news/singapore/rss.xml" # Singapore
 }
 
 class RSSCollector:

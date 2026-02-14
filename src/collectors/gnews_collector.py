@@ -39,7 +39,16 @@ class GNewsCollector:
             'in': '("Policy" OR "Market" OR "Economy" OR "Tech" OR "Startup" OR "Infrastructure")'
         }
 
-        for country in countries:
+        # OPTIMIZATION: Rotate countries to avoid Rate Limits (100 req/day limit)
+        # 15 min cycle = 96 runs/day. To stay under 100, we can only make ~1 request per run.
+        # But we need density. Let's pick 2 random countries per cycle.
+        # Over 24 hours, all countries will be covered multiple times.
+        import random
+        random.shuffle(countries)
+        target_countries = countries[:2] # Pick top 2 after shuffle
+        logger.info(f"GNews: Rotating targets for this cycle: {target_countries}")
+
+        for country in target_countries:
             try:
                 queries = [None] # Default to top headlines
                 if country in specialized_features:
