@@ -123,7 +123,7 @@ async def dashboard(request: Request, category: str = None, country: str = None,
         # Handle common code to name mapping
         code_map = {
             "jp": "Japan", "cn": "China", "us": "USA", "in": "India", "gb": "UK",
-            "ru": "Russia", "de": "Germany", "fr": "France", "au": "Australia"
+            "ru": "Russia", "de": "Germany", "fr": "France", "au": "Australia", "sg": "Singapore", "ae": "UAE"
         }
         if country.lower() in code_map: target_country = code_map[country.lower()]
 
@@ -354,6 +354,10 @@ async def get_breaking_news(country: str = None, db: Session = Depends(get_db)):
             code_map = {"jp": "Japan", "cn": "China", "us": "USA", "in": "India", "gb": "UK",
                        "ru": "Russia", "de": "Germany", "fr": "France", "au": "Australia"}
             if country.lower() in code_map: target = code_map[country.lower()]
+            
+            # Special manual case for UAE and Singapore
+            if country.lower() == 'ae': target = "UAE"
+            if country.lower() == 'sg': target = "Singapore"
             
             breaking_news = [b for b in breaking_news if b.get("country") == target or b.get("country") == target.lower() or b.get("country") == country.lower()]
         else:

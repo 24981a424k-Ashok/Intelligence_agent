@@ -168,7 +168,7 @@ class DigestGenerator:
             "Environment & Climate", "Lifestyle & Wellness", "Defense & Security"
         ]
         categories = {cat: [] for cat in mandatory_categories}
-        countries = {"India": [], "USA": [], "China": [], "Japan": [], "UK": [], "Global": []}
+        countries = {"India": [], "USA": [], "China": [], "Japan": [], "UK": [], "Singapore": [], "UAE": [], "Global": []}
 
         # 2.A Populate Countries from ALL recent news (not just top 400)
         for n in recent_news:
@@ -176,7 +176,8 @@ class DigestGenerator:
              if not country_code:
                  continue
              
-             country_map = {"us": "USA", "cn": "China", "jp": "Japan", "in": "India", "gb": "UK"}
+             country_map = {"us": "USA", "cn": "China", "jp": "Japan", "in": "India", "gb": "UK", \
+                           "sg": "Singapore", "ae": "UAE", "ru": "Russia", "de": "Germany", "fr": "France", "au": "Australia"}
              name = country_map.get(country_code.lower(), country_code.capitalize())
              
              item_data = {

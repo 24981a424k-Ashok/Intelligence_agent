@@ -186,7 +186,8 @@ class SocialMediaCollector:
                         url=url,
                         url_to_image=item.get('url_to_image'),
                         published_at=item['published_at'],
-                        content=item['content']
+                        content=item['content'],
+                        country='in'
                     )
                     session.add(raw_news)
                     count += 1

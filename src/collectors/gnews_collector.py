@@ -18,38 +18,60 @@ class GNewsCollector:
         if not self.api_key:
             logger.warning("GNews API Key is missing!")
 
-    def fetch_country_news(self, countries: List[str] = ['us', 'gb', 'jp', 'cn', 'in', 'ru', 'de', 'fr', 'au']) -> int:
+    def fetch_country_news(self, countries: List[str] = ['us', 'gb', 'jp', 'cn', 'in', 'ru', 'de', 'fr', 'au', 'sg', 'ae']) -> int:
         """
-        Fetch top headlines for specific countries.
-        GNews allows filtering by country code.
+        Fetch specialized intelligence and top headlines for specific countries.
         """
         if not self.api_key:
             return 0
 
         total_saved = 0
+        
+        # Specialized Country Features Mapping
+        specialized_features = {
+            'us': '("Stock Market" OR "Fed News" OR "Corporate News" OR "AI" OR "Tech" OR "Startup")',
+            'gb': '("Policy" OR "Regulation" OR "Global Finance" OR "UK–EU relations")',
+            'cn': '("Economy" OR "Trade News" OR "Manufacturing" OR "Supply-chain" OR "Tech" OR "AI")',
+            'de': '("EU economy" OR "Industry news" OR "Energy policy" OR "Climate policy")',
+            'jp': '("Technology" OR "Robotics" OR "Market" OR "Currency")',
+            'sg': '("Startup" OR "Fintech" OR "ASEAN economy")',
+            'ae': '("Energy" OR "Oil markets" OR "Infrastructure" OR "Mega-projects" OR "Geopolitics")',
+            'in': '("Policy" OR "Market" OR "Economy" OR "Tech" OR "Startup" OR "Infrastructure")'
+        }
+
         for country in countries:
             try:
-                logger.info(f"GNews: Fetching headlines for {country}...")
-                params = {
-                    "lang": "en" if country not in ['jp', 'cn', 'ru', 'de', 'fr'] else None,
-                    "country": country,
-                    "max": 10,
-                    "apikey": self.api_key
-                }
-                
-                # For non-English countries, GNews often works better with localized lang or no lang constraint
-                if country == 'jp': params['lang'] = 'ja'
-                if country == 'cn': params['lang'] = 'zh'
-                if country == 'ru': params['lang'] = 'ru'
-                if country == 'de': params['lang'] = 'de'
-                if country == 'fr': params['lang'] = 'fr'
-                
-                response = requests.get(f"{self.base_url}/top-headlines", params=params)
-                if response.status_code == 200:
-                    articles = response.json().get('articles', [])
-                    total_saved += self._save_articles(articles, country)
-                else:
-                    logger.error(f"GNews error for {country}: {response.status_code} - {response.text}")
+                queries = [None] # Default to top headlines
+                if country in specialized_features:
+                    queries.append(specialized_features[country])
+
+                for query in queries:
+                    endpoint = "search" if query else "top-headlines"
+                    logger.info(f"GNews: Fetching {endpoint} for {country} (Query: {query})...")
+                    
+                    params = {
+                        "lang": "en" if country not in ['jp', 'cn', 'ru', 'de', 'fr'] else None,
+                        "country": country,
+                        "max": 10,
+                        "apikey": self.api_key
+                    }
+                    
+                    if query: params["q"] = query
+                    
+                    # For non-English countries, GNews often works better with localized lang or no lang constraint
+                    if not query: # Only override lang for general top-headlines
+                        if country == 'jp': params['lang'] = 'ja'
+                        if country == 'cn': params['lang'] = 'zh'
+                        if country == 'ru': params['lang'] = 'ru'
+                        if country == 'de': params['lang'] = 'de'
+                        if country == 'fr': params['lang'] = 'fr'
+                    
+                    response = requests.get(f"{self.base_url}/{endpoint}", params=params)
+                    if response.status_code == 200:
+                        articles = response.json().get('articles', [])
+                        total_saved += self._save_articles(articles, country)
+                    else:
+                        logger.error(f"GNews error for {country} ({endpoint}): {response.status_code} - {response.text}")
             except Exception as e:
                 logger.error(f"GNews fetch failed for {country}: {e}")
         
