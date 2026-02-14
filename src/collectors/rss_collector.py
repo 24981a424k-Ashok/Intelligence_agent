@@ -78,7 +78,12 @@ RSS_FEEDS = {
     "france24": "https://www.france24.com/en/rss",         # France
     "abc-australia": "https://www.abc.net.au/news/feed/5112088/rss.xml", # Australia
     "moscow-times": "https://www.themoscowtimes.com/rss/news", # Russia
-    "straitstimes-singapore": "https://www.straitstimes.com/news/singapore/rss.xml" # Singapore
+    "straitstimes-singapore": "https://www.straitstimes.com/news/singapore/rss.xml", # Singapore
+    
+    # 16. Missing Markets (United States & UAE)
+    "khaleej-times": "https://www.khaleejtimes.com/rss/xml/nation", # UAE
+    "nyt-us": "https://rss.nytimes.com/services/xml/rss/nyt/US.xml", # USA
+    "cnn-us": "http://rss.cnn.com/rss/cnn_us.rss" # USA
 }
 
 class RSSCollector:
@@ -120,7 +125,8 @@ class RSSCollector:
                             "content": entry.get("summary", "") or entry.get("description", ""),
                             "author": entry.get("author", "Unknown"),
                             "published_at": published_at,
-                            "url_to_image": image_url
+                            "url_to_image": image_url,
+                            "country_code": self._detect_country(source_name) # Auto-tag country
                         })
                 
                 if articles:
@@ -189,12 +195,26 @@ class RSSCollector:
                 pass
         return datetime.utcnow()
 
-    def _is_recent(self, date_obj: datetime) -> bool:
-        """Check if date is within last 24 hours"""
-        cutoff = datetime.utcnow() - timedelta(hours=24)
-        if date_obj.tzinfo:
-            date_obj = date_obj.replace(tzinfo=None)
-        return date_obj > cutoff
+    def _detect_country(self, source_id: str) -> str:
+        """Map source IDs to country codes for auto-tagging"""
+        mapping = {
+            "scmp-china": "cn",
+            "japan-times": "jp",
+            "guardian-uk": "gb",
+            "bbc-news": "gb",
+            "dw-germany": "de",
+            "france24": "fr",
+            "abc-australia": "au",
+            "moscow-times": "ru",
+            "straitstimes-singapore": "sg",
+            "khaleej-times": "ae",
+            "nyt-us": "us",
+            "cnn-us": "us",
+            "times-of-india": "in",
+            "ndtv-top": "in",
+            "news18-india": "in"
+        }
+        return mapping.get(source_id)
 
     def _save_articles(self, articles: List[Dict[str, Any]]) -> int:
         session = SessionLocal()
@@ -228,7 +248,8 @@ class RSSCollector:
                         url=url,
                         url_to_image=article.get('url_to_image'),
                         published_at=article['published_at'],
-                        content=article['content']
+                        content=article['content'],
+                        country=article.get('country_code') # Explicitly save detected country
                     )
                     session.add(raw_news)
                     session.flush() # Flush to catch integrity errors early
