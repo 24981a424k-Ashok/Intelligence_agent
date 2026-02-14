@@ -76,6 +76,18 @@ def get_fallback_image(seed: str) -> str:
         hash_val = ((hash_val << 5) + hash_val) + ord(char)
     return FALLBACK_IMAGES[abs(hash_val) % len(FALLBACK_IMAGES)]
 
+def normalize_country(c):
+    if not c: return None, []
+    mapping = {
+        "jp": "Japan", "cn": "China", "us": "USA", "in": "India", "gb": "UK",
+        "ru": "Russia", "de": "Germany", "fr": "France", "au": "Australia", "sg": "Singapore", "ae": "UAE"
+    }
+    val = c.lower().strip()
+    name = mapping.get(val, c.capitalize())
+    # Return name and list of potential match keys (Extensive case matching)
+    match_keys = [val, val.upper(), name, name.lower(), name.upper(), val.capitalize()]
+    return name, list(set(match_keys))
+
 def get_db():
     db = SessionLocal()
     try:
@@ -120,17 +132,6 @@ async def dashboard(request: Request, category: str = None, country: str = None,
     selected_category = category
     selected_country_name = None
     
-    def normalize_country(c):
-        if not c: return None, []
-        mapping = {
-            "jp": "Japan", "cn": "China", "us": "USA", "in": "India", "gb": "UK",
-            "ru": "Russia", "de": "Germany", "fr": "France", "au": "Australia", "sg": "Singapore", "ae": "UAE"
-        }
-        val = c.lower().strip()
-        name = mapping.get(val, c.capitalize())
-        # Return name and list of potential match keys (Extensive case matching)
-        return name, [val, val.upper(), name, name.lower(), name.upper(), val.capitalize()]
-
     if digest_data and country:
         target_name, match_keys = normalize_country(country)
         selected_country_name = target_name
@@ -353,18 +354,13 @@ async def get_breaking_news(country: str = None, db: Session = Depends(get_db)):
     if latest_digest and "breaking_news" in latest_digest.content_json:
         breaking_news = latest_digest.content_json["breaking_news"]
         
-        # 1. Filter by Country if specified, else English-only for Global
+        # 1. Standardized Filter
         if country:
-            target = country.strip().capitalize()
-            code_map = {"jp": "Japan", "cn": "China", "us": "USA", "in": "India", "gb": "UK",
-                       "ru": "Russia", "de": "Germany", "fr": "France", "au": "Australia"}
-            if country.lower() in code_map: target = code_map[country.lower()]
-            
-            # Special manual case for UAE and Singapore
-            if country.lower() == 'ae': target = "UAE"
-            if country.lower() == 'sg': target = "Singapore"
-            
-            breaking_news = [b for b in breaking_news if b.get("country") == target or b.get("country") == target.lower() or b.get("country") == country.lower()]
+            target_name, match_keys = normalize_country(country)
+            breaking_news = [
+                b for b in breaking_news 
+                if (b.get("country") in match_keys) or (b.get("country_name") in match_keys)
+            ]
         else:
             # HOME PAGE: Only English countries
             non_english = ['jp', 'cn', 'ru', 'de', 'fr', 'Japan', 'China', 'Russia', 'Germany', 'France']
@@ -454,23 +450,31 @@ async def get_more_stories(category: str, offset: int, country: str = None, db: 
 
         # Normalize if needed (same logic as dashboard)
         if stories:
-             normalized = []
-             for s in stories:
-                 normalized.append({
-                     "id": s.get("id"),
-                     "title": s.get("title"),
-                     "url": s.get("url"),
-                     "image_url": s.get("image_url"),
-                     "source_name": s.get("source_name"),
-                     "bullets": s.get("bullets") or [s.get("summary") or s.get("why", "")],
-                     "affected": s.get("affected", ""),
-                     "why": s.get("why", ""),
-                     "bias": s.get("bias", "Neutral"),
-                     "tags": s.get("tags", []),
-                     "category": category,
-                     "time_ago": s.get("time_ago", "Just Now")
-                 })
-             stories = normalized
+            normalized = []
+            for s in stories:
+                normalized.append({
+                    "id": s.get("id"),
+                    "title": s.get("title"),
+                    "url": s.get("url"),
+                    "image_url": s.get("image_url"),
+                    "source_name": s.get("source_name"),
+                    "bullets": s.get("bullets") or [s.get("summary") or s.get("why", "")],
+                    "affected": s.get("affected", ""),
+                    "why": s.get("why", ""),
+                    "bias": s.get("bias", "Neutral"),
+                    "tags": s.get("tags", []),
+                    "category": category,
+                    "time_ago": s.get("time_ago", "Just Now")
+                })
+            stories = normalized
+             
+        # FINALLY: If country is provided, filter the results strictly to match
+        if country and stories:
+            target_name, match_keys = normalize_country(country)
+            stories = [
+                s for s in stories
+                if (s.get("country") in match_keys) or (s.get("country_name") in match_keys)
+            ]
 
     # Pagination logic
     start = offset
