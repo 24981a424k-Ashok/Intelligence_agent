@@ -128,8 +128,8 @@ async def dashboard(request: Request, category: str = None, country: str = None,
         }
         val = c.lower().strip()
         name = mapping.get(val, c.capitalize())
-        # Return name and list of potential match keys
-        return name, [val, name.lower(), name]
+        # Return name and list of potential match keys (Extensive case matching)
+        return name, [val, val.upper(), name, name.lower(), name.upper(), val.capitalize()]
 
     if digest_data and country:
         target_name, match_keys = normalize_country(country)
@@ -168,22 +168,19 @@ async def dashboard(request: Request, category: str = None, country: str = None,
             digest_data["top_stories"] = normalized_stories
             trending_title = f"Trending in {target_name}"
         else:
-            # SAFE FALLBACK: If no regional stories, show global top stories but label clearly
-            # This prevents the page from being entirely empty.
-            if "top_stories" in digest_data:
-                # Add a virtual tag to each story indicating it is global fallback
-                for s in digest_data["top_stories"]:
-                    s["is_global_fallback"] = True
-            trending_title = f"{target_name} Node: Global News"
+            # NO regional stories? Show message rather than global fallback which looks like a bug
+            digest_data["top_stories"] = [] 
+            trending_title = f"{target_name} Node: Collecting Intel..."
             
         # 3. Filter ALL OTHER SECTIONS strictly (Breaking/Trending/Brief)
-        # These should remain empty if no regional data exists to maintain accuracy
         for section in ["breaking_news", "brief", "trending_news"]:
             if section in digest_data:
-                digest_data[section] = [
+                filtered = [
                     item for item in digest_data[section]
                     if (item.get("country") in match_keys) or (item.get("country_name") in match_keys)
                 ]
+                # If section becomes empty after filter, hide it or keep it empty
+                digest_data[section] = filtered
 
 
     # Filter by Category if requested (if country is null)
@@ -271,12 +268,14 @@ async def dashboard(request: Request, category: str = None, country: str = None,
         if "top_stories" in digest_data:
              digest_data["top_stories"] = [s for s in digest_data["top_stories"] if s.get("country") not in non_english]
 
-    # Inject fallback images for breaking news
-    if digest_data and "breaking_news" in digest_data:
-        for idx, item in enumerate(digest_data["breaking_news"]):
-            if not item.get("image_url"):
-                seed = f"{item.get('headline', '')}{item.get('title', '')}"
-                item["image_url"] = get_fallback_image(seed)
+    # Inject fallback images for ALL sections for consistency
+    if digest_data:
+        for section in ["top_stories", "breaking_news", "trending_news"]:
+            if section in digest_data:
+                for idx, item in enumerate(digest_data[section]):
+                    if not item.get("image_url"):
+                        seed = f"{item.get('headline', '')}{item.get('title', '')}{idx}"
+                        item["image_url"] = get_fallback_image(seed)
 
     return templates.TemplateResponse("dashboard.html", context)
 

@@ -189,7 +189,7 @@ function getCategoryFallback(category, seed = '', index = 0) {
 
     // Improved String Hashing (djb2-like) for better variance
     let hash = 5381;
-    const combinedSeed = seed + index; // Mix index into seed for per-slot uniqueness
+    const combinedSeed = seed + index + (category || 'global'); // Mix in category for section isolation
     for (let i = 0; i < combinedSeed.length; i++) {
         hash = (hash * 33) ^ combinedSeed.charCodeAt(i);
     }
