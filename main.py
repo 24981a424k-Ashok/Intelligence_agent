@@ -122,7 +122,8 @@ def main():
         # Run Web Server
         port = int(os.environ.get("PORT", 8000))
         logger.info(f"🚀 Launching server on port {port}...")
-        uvicorn.run("main:app", host="0.0.0.0", port=port, reload=True)
+        # Disable reload=True to avoid sub-process port conflicts on Windows
+        uvicorn.run("main:app", host="127.0.0.1", port=port, reload=False)
 
 if __name__ == "__main__":
     main()
