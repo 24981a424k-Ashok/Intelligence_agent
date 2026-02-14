@@ -195,6 +195,13 @@ class RSSCollector:
                 pass
         return datetime.utcnow()
 
+    def _is_recent(self, date_obj: datetime) -> bool:
+        """Check if date is within last 24 hours"""
+        cutoff = datetime.utcnow() - timedelta(hours=24)
+        if date_obj.tzinfo:
+            date_obj = date_obj.replace(tzinfo=None)
+        return date_obj > cutoff
+
     def _detect_country(self, source_id: str) -> str:
         """Map source IDs to country codes for auto-tagging"""
         mapping = {
