@@ -38,8 +38,12 @@ async def run_news_cycle():
         social_collector = SocialMediaCollector()
         trending_count = social_collector.fetch_trending_india()
         
-        total_count = api_count + rss_count + twitter_count + trending_count
-        logger.info(f"Collected {total_count} new articles (incl. {twitter_count} Twitter, {trending_count} Trending).")
+        from src.collectors.gnews_collector import GNewsCollector
+        gnews_collector = GNewsCollector()
+        gnews_count = gnews_collector.fetch_country_news()
+        
+        total_count = api_count + rss_count + twitter_count + trending_count + gnews_count
+        logger.info(f"Collected {total_count} new articles (incl. {gnews_count} GNews, {twitter_count} Twitter, {trending_count} Trending).")
         
         if total_count == 0 and db.query(RawNews).count() == 0:
             logger.warning("No news collected and DB is empty. Aborting cycle.")
@@ -96,6 +100,9 @@ async def run_news_cycle():
                 news.impact_tags = result.get("impact_tags", [])
                 news.bias_rating = result.get("bias_rating", "Neutral")
                 news.impact_score = result.get("impact_score", 5)
+                
+                # Geography Handling
+                news.country = result.get("country") or result.get("primary_geography") or (news.raw_news.country if news.raw_news else None)
                 
                 # Explicit Category Handling
                 if news.raw_news and news.raw_news.source_id and news.raw_news.source_id.startswith("x-"):

@@ -93,7 +93,7 @@ async def landing_page(request: Request):
     return templates.TemplateResponse("login.html", {"request": request, "firebase_config": firebase_config})
 
 @router.get("/dashboard")
-async def dashboard(request: Request, category: str = None, db: Session = Depends(get_db)):
+async def dashboard(request: Request, category: str = None, country: str = None, db: Session = Depends(get_db)):
     # Get latest published digest
     latest_digest = db.query(DailyDigest).filter(DailyDigest.is_published == True).order_by(DailyDigest.date.desc()).first()
     
@@ -112,16 +112,81 @@ async def dashboard(request: Request, category: str = None, db: Session = Depend
 
     digest_data = latest_digest.content_json if latest_digest else None
     
-    # Filter by Category if requested
+    # Filter by Country if requested (Takes priority over category)
+    selected_country = country
     selected_category = category
-    if digest_data and category:
+
+    if digest_data and country:
+        countries_data = digest_data.get("countries", {})
+        # Case insensitive match for keys
+        target_country = country.strip().capitalize()
+        # Handle common code to name mapping
+        code_map = {
+            "jp": "Japan", "cn": "China", "us": "USA", "in": "India", "gb": "UK",
+            "ru": "Russia", "de": "Germany", "fr": "France", "au": "Australia"
+        }
+        if country.lower() in code_map: target_country = code_map[country.lower()]
+
+        country_stories = []
+        for k, v in countries_data.items():
+            if k.lower() == country.lower() or k.lower() == target_country.lower():
+                country_stories = v
+                break
+        
+        if country_stories:
+            # Normalize format to match top_stories
+            normalized_stories = []
+            for s in country_stories:
+                normalized_stories.append({
+                    "id": s.get("id"),
+                    "title": s.get("title"),
+                    "url": s.get("url"),
+                    "image_url": s.get("image_url"),
+                    "source_name": s.get("source_name"),
+                    "bullets": s.get("bullets") or [s.get("why", "")],
+                    "affected": s.get("affected", ""),
+                    "why": s.get("why", ""),
+                    "bias": s.get("bias", "Neutral"),
+                    "tags": s.get("tags", []),
+                    "category": s.get("category"),
+                    "country": s.get("country"),
+                    "time_ago": s.get("time_ago", "Just Now")
+                })
+            digest_data["top_stories"] = normalized_stories
+
+            # 1. Filter Breaking News
+            if "breaking_news" in digest_data:
+                digest_data["breaking_news"] = [
+                    item for item in digest_data["breaking_news"] 
+                    if item.get("country") == target_country or item.get("country") == target_country.lower() or item.get("country") == country.lower()
+                ]
+            
+            # 2. Filter Brief
+            if "brief" in digest_data:
+                digest_data["brief"] = [
+                    item for item in digest_data["brief"] 
+                    if item.get("country") == target_country or item.get("country") == target_country.lower() or item.get("country") == country.lower()
+                ]
+
+            # 3. Filter Trending
+            if "trending_news" in digest_data:
+                digest_data["trending_news"] = [
+                    item for item in digest_data["trending_news"] 
+                    if item.get("country") == target_country or item.get("country") == target_country.lower() or item.get("country") == country.lower()
+                ]
+            
+            # 4. Set Trending Title
+            context_updates = {
+                "trending_title": f"Trending in {target_country}",
+                "selected_country_name": target_country
+            }
+
+    # Filter by Category if requested (if country is null)
+    elif digest_data and category:
         # Filter top stories
         all_stories = digest_data.get("top_stories", [])
-        # We can also pull from the "categories" dictionary if we want more depth
-        # Normalize category to match backend keys (typically lowercase/snake_case)
         normalized_category = category.lower().replace(" ", "_").strip()
         
-        # Explicit mappings for frontend-backend mismatches
         category_map = {
             "business": "Business & Economy",
             "economy": "Business & Economy",
@@ -143,24 +208,20 @@ async def dashboard(request: Request, category: str = None, db: Session = Depend
         }
         
         target_key = category_map.get(normalized_category, category.strip())
-
         cat_stories = []
         categories = digest_data.get("categories", {})
-        # Direct match
+        
         if target_key in categories:
              cat_stories = categories[target_key]
         elif normalized_category in categories:
             cat_stories = categories[normalized_category]
         else:
-            # Fallback: Check keys case-insensitively
             for k, v in categories.items():
                 if k.lower() == normalized_category or k.lower() == target_key.lower():
                     cat_stories = v
                     break
         
-        # If we have specific category stories, use them. Otherwise filter top stories.
         if cat_stories:
-             # Normalize format to match top_stories
              normalized_cat_stories = []
              for s in cat_stories:
                  normalized_cat_stories.append({
@@ -169,7 +230,7 @@ async def dashboard(request: Request, category: str = None, db: Session = Depend
                      "url": s.get("url"),
                      "image_url": s.get("image_url"),
                      "source_name": s.get("source_name"),
-                     "bullets": s.get("bullets") or [s.get("summary") or s.get("why", "")],
+                     "bullets": s.get("bullets") or [s.get("why", "")],
                      "affected": s.get("affected", ""),
                      "why": s.get("why", ""),
                      "bias": s.get("bias", "Neutral"),
@@ -179,7 +240,6 @@ async def dashboard(request: Request, category: str = None, db: Session = Depend
                  })
              digest_data["top_stories"] = normalized_cat_stories
         else:
-             # Try to filter existing top_stories
              digest_data["top_stories"] = [s for s in all_stories if s.get("category") == category]
 
     context = {
@@ -188,9 +248,23 @@ async def dashboard(request: Request, category: str = None, db: Session = Depend
         "date": latest_digest.date.strftime("%Y-%m-%d") if latest_digest else "System Initializing",
         "firebase_config": firebase_config,
         "vapid_public_key": settings.VAPID_PUBLIC_KEY,
-        "selected_category": selected_category
+        "selected_category": selected_category,
+        "trending_title": locals().get("context_updates", {}).get("trending_title", "Trending Feed"),
+        "selected_country_name": locals().get("context_updates", {}).get("selected_country_name")
     }
     
+    # Filter Global View (Home) for English only
+    if digest_data and not country:
+        non_english = ['jp', 'cn', 'ru', 'de', 'fr', 'Japan', 'China', 'Russia', 'Germany', 'France']
+        if "breaking_news" in digest_data:
+             digest_data["breaking_news"] = [b for b in digest_data["breaking_news"] if b.get("country") not in non_english]
+        if "trending_news" in digest_data:
+             digest_data["trending_news"] = [t for t in digest_data["trending_news"] if t.get("country") not in non_english]
+        if "brief" in digest_data:
+             digest_data["brief"] = [f for f in digest_data["brief"] if f.get("country") not in non_english]
+        if "top_stories" in digest_data:
+             digest_data["top_stories"] = [s for s in digest_data["top_stories"] if s.get("country") not in non_english]
+
     # Inject fallback images for breaking news
     if digest_data and "breaking_news" in digest_data:
         for idx, item in enumerate(digest_data["breaking_news"]):
@@ -264,7 +338,7 @@ async def business_intelligence(request: Request, db: Session = Depends(get_db))
     })
 
 @router.get("/api/breaking-news")
-async def get_breaking_news(db: Session = Depends(get_db)):
+async def get_breaking_news(country: str = None, db: Session = Depends(get_db)):
     """API endpoint for breaking news auto-refresh"""
     latest_digest = db.query(DailyDigest).filter(
         DailyDigest.is_published == True
@@ -273,7 +347,21 @@ async def get_breaking_news(db: Session = Depends(get_db)):
     breaking_news = []
     if latest_digest and "breaking_news" in latest_digest.content_json:
         breaking_news = latest_digest.content_json["breaking_news"]
-        # Inject fallback images
+        
+        # 1. Filter by Country if specified, else English-only for Global
+        if country:
+            target = country.strip().capitalize()
+            code_map = {"jp": "Japan", "cn": "China", "us": "USA", "in": "India", "gb": "UK",
+                       "ru": "Russia", "de": "Germany", "fr": "France", "au": "Australia"}
+            if country.lower() in code_map: target = code_map[country.lower()]
+            
+            breaking_news = [b for b in breaking_news if b.get("country") == target or b.get("country") == target.lower() or b.get("country") == country.lower()]
+        else:
+            # HOME PAGE: Only English countries
+            non_english = ['jp', 'cn', 'ru', 'de', 'fr', 'Japan', 'China', 'Russia', 'Germany', 'France']
+            breaking_news = [b for b in breaking_news if b.get("country") not in non_english]
+
+        # 2. Inject fallback images
         for idx, item in enumerate(breaking_news):
             if not item.get("image_url"):
                 seed = f"{item.get('headline', '')}{item.get('title', '')}"
@@ -282,7 +370,7 @@ async def get_breaking_news(db: Session = Depends(get_db)):
     return {"breaking_news": breaking_news}
 
 @router.get("/api/more-stories/{category}/{offset}")
-async def get_more_stories(category: str, offset: int, db: Session = Depends(get_db)):
+async def get_more_stories(category: str, offset: int, country: str = None, db: Session = Depends(get_db)):
     """Fetch more stories for a specific category with offset"""
     latest_digest = db.query(DailyDigest).filter(DailyDigest.is_published == True).order_by(DailyDigest.date.desc()).first()
     
@@ -294,9 +382,17 @@ async def get_more_stories(category: str, offset: int, db: Session = Depends(get
     
     if category == "top_stories":
         stories = digest_data.get("top_stories", [])
-    elif category == "breaking_news":
-        # Special case for ticker, though usually handled differently
-         stories = digest_data.get("breaking_news", [])
+    elif category == "breaking_news" or category == "breaking":
+        stories = digest_data.get("breaking_news", [])
+    
+    # Fast-track for specific keys
+    if not stories and category in digest_data:
+        stories = digest_data.get(category, [])
+
+    if stories and not country:
+        # HOME PAGE: Only English countries
+        non_english = ['jp', 'cn', 'ru', 'de', 'fr', 'Japan', 'China', 'Russia', 'Germany', 'France']
+        stories = [s for s in stories if s.get("country") not in non_english]
     else:
         # Normalize category to match backend keys 
         normalized_category = category.lower().replace(" ", "_").strip()
@@ -341,6 +437,12 @@ async def get_more_stories(category: str, offset: int, db: Session = Depends(get
                     break
         
         stories = cat_stories
+        
+        # Apply English-only filter for Home Page (if country is null)
+        if not country:
+            non_english = ['jp', 'cn', 'ru', 'de', 'fr', 'Japan', 'China', 'Russia', 'Germany', 'France']
+            stories = [s for s in stories if s.get("country") not in non_english]
+
         # Normalize if needed (same logic as dashboard)
         if stories:
              normalized = []

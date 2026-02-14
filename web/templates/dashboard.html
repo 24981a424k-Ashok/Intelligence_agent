@@ -63,6 +63,22 @@
                     <a href="/dashboard?category=entertainment" class="dropdown-link">Entertainment</a>
                 </div>
             </div>
+
+            <div class="nav-item">
+                Global Nodes
+                <div class="dropdown-menu">
+                    <a href="/dashboard?country=china" class="dropdown-link">🇨🇳 China Node</a>
+                    <a href="/dashboard?country=japan" class="dropdown-link">🇯🇵 Japan Node</a>
+                    <a href="/dashboard?country=gb" class="dropdown-link">🇬🇧 UK Node</a>
+                    <a href="/dashboard?country=usa" class="dropdown-link">🇺🇸 USA Node</a>
+                    <a href="/dashboard?country=india" class="dropdown-link">🇮🇳 India Node</a>
+                    <a href="/dashboard?country=russia" class="dropdown-link">🇷🇺 Russia Node</a>
+                    <a href="/dashboard?country=germany" class="dropdown-link">🇩🇪 Germany Node</a>
+                    <a href="/dashboard?country=france" class="dropdown-link">🇫🇷 France Node</a>
+                    <a href="/dashboard?country=australia" class="dropdown-link">🇦🇺 Australia Node</a>
+                </div>
+            </div>
+
             <a href="/saved" class="nav-link">Saved</a>
             <a href="/mock-test" class="nav-link">Mock Test</a>
             <a href="/history" class="nav-link">History</a>
@@ -96,13 +112,36 @@
         </div>
     </header>
 
-    <main class="main-content" data-category="{{ selected_category or 'top_stories' }}">
+    <main class="main-content" data-category="{{ selected_category or 'top_stories' }}"
+        data-country="{{ selected_country or '' }}">
         {% if not digest %}
         <div style="text-align: center; margin-top: 5rem; color: var(--text-secondary);">
             <h2>System Initializing...</h2>
             <p>Gathering intelligence from global nodes. Please wait for the next cycle.</p>
         </div>
         {% else %}
+
+        <!-- MARKET & CLIMATE BAR -->
+        <div class="market-climate-bar">
+            <div class="ticker-wrap">
+                <div class="ticker-title">MARKETS</div>
+                <div class="ticker" id="market-ticker">
+                    <span class="ticker-item">S&P 500 <span class="up">▲ 5,026.73 (+0.45%)</span></span>
+                    <span class="ticker-item">NASDAQ <span class="up">▲ 15,990.66 (+1.10%)</span></span>
+                    <span class="ticker-item">NIFTY 50 <span class="down">▼ 21,782.50 (-0.25%)</span></span>
+                    <span class="ticker-item">BTC <span class="up">▲ $49,820 (+3.2%)</span></span>
+                    <span class="ticker-item">GOLD <span class="up">▲ $2,034 (+0.12%)</span></span>
+                    <span class="ticker-item">CRUDE OIL <span class="down">▼ $76.84 (-1.5%)</span></span>
+                </div>
+            </div>
+            <div class="weather-wrap">
+                <div class="weather-item">
+                    <span class="weather-loc">{{ selected_country_name or 'Global' }}</span>
+                    <span class="weather-temp" id="weather-temp">72°F</span>
+                    <span class="weather-desc">Partly Cloudy</span>
+                </div>
+            </div>
+        </div>
 
         <!-- 3. LIVE & TRENDING VIDEOS (Content Block 1) -->
         <!-- Mock Data using Top Stories for validation -->
@@ -231,18 +270,19 @@
 
         <!-- 5. TOP 10 HEADLINES (Content Block 3) -->
         <section class="top-headlines" id="top-headlines">
-            <div class="section-header">
-                <h2 class="section-title">
-                    {% if selected_category %}
-                    {{ selected_category }} News
+            <div class="content-header">
+                <h2 id="section-title">
+                    {% if selected_country %}
+                    {{ selected_country.capitalize() }} Intelligence Node
+                    {% elif selected_category %}
+                    {{ selected_category.capitalize() }} Intelligence
                     {% else %}
                     Top Headlines
                     {% endif %}
                 </h2>
-                <span
-                    style="font-size:0.8rem; color:var(--text-secondary); text-transform: uppercase; letter-spacing: 1px;">
+                <div class="header-meta">
                     {% if selected_category %} Curated Category Feed {% else %} Global Intelligence {% endif %}
-                </span>
+                </div>
             </div>
             <div class="headlines-grid">
                 {% for story in (digest.top_stories or [])[:6] %}
@@ -306,8 +346,10 @@
         {% if not selected_category %}
         <section class="trending-india">
             <div class="section-header">
-                <h2 class="section-title">Trending in India</h2>
-                <span style="color: var(--accent-green); font-size:0.8rem; font-weight:700;">LIVE UPDATES</span>
+                <h2 class="section-title">{{ trending_title or "Trending Feed" }}</h2>
+                <span
+                    style="color: var(--accent-green); font-size:0.75rem; font-weight:700; background: rgba(0,255,0,0.1); padding: 4px 10px; border-radius: 20px;">LIVE
+                    UPDATES</span>
             </div>
             <div class="trending-grid">
                 {% if digest.trending_news %}
@@ -336,10 +378,110 @@
         {% if not selected_category %}
         <section class="newspapers-bottom" id="newspaper-section">
             <div class="section-header">
-                <h2 class="section-title">Today's Newspapers</h2>
+                <h2 class="section-title">
+                    {% if selected_country_name %}
+                    Regional Publications: {{ selected_country_name }}
+                    {% else %}
+                    Today's Newspapers
+                    {% endif %}
+                </h2>
             </div>
             <div class="paper-shelf">
                 <!-- Hardcoded popular papers as per request to look like covers -->
+                {% if selected_country_name == "Japan" %}
+                <a href="https://asia.nikkei.com" target="_blank" class="paper-item">
+                    <div class="paper-logo" style="color:#e60012;">NIKKEI</div>
+                    <span style="font-size:0.8rem; font-weight:600; color:var(--text-secondary);">Nikkei Asia</span>
+                </a>
+                <a href="https://www.japantimes.co.jp" target="_blank" class="paper-item">
+                    <div class="paper-logo" style="color:#000;">JT</div>
+                    <span style="font-size:0.8rem; font-weight:600; color:var(--text-secondary);">Japan Times</span>
+                </a>
+                {% elif selected_country_name == "USA" %}
+                <a href="https://www.nytimes.com" target="_blank" class="paper-item">
+                    <div class="paper-logo" style="font-family:serif; color:#000;">NYT</div>
+                    <span style="font-size:0.8rem; font-weight:600; color:var(--text-secondary);">NY Times</span>
+                </a>
+                <a href="https://www.wsj.com" target="_blank" class="paper-item">
+                    <div class="paper-logo" style="font-family:serif; color:#000;">WSJ</div>
+                    <span style="font-size:0.8rem; font-weight:600; color:var(--text-secondary);">WSJ</span>
+                </a>
+                <a href="https://www.washingtonpost.com" target="_blank" class="paper-item">
+                    <div class="paper-logo" style="color:#000;">WP</div>
+                    <span style="font-size:0.8rem; font-weight:600; color:var(--text-secondary);">Wash. Post</span>
+                </a>
+                {% elif selected_country_name == "UK" %}
+                <a href="https://www.thetimes.co.uk" target="_blank" class="paper-item">
+                    <div class="paper-logo" style="font-family:serif; color:#000;">THE TIMES</div>
+                    <span style="font-size:0.8rem; font-weight:600; color:var(--text-secondary);">The Times</span>
+                </a>
+                <a href="https://www.bbc.com" target="_blank" class="paper-item">
+                    <div class="paper-logo" style="color:#b91c1c;">BBC</div>
+                    <span style="font-size:0.8rem; font-weight:600; color:var(--text-secondary);">BBC News</span>
+                </a>
+                <a href="https://www.theguardian.com" target="_blank" class="paper-item">
+                    <div class="paper-logo" style="color:#005689;">THE G</div>
+                    <span style="font-size:0.8rem; font-weight:600; color:var(--text-secondary);">The Guardian</span>
+                </a>
+                {% elif selected_country_name == "China" %}
+                <a href="https://www.scmp.com" target="_blank" class="paper-item">
+                    <div class="paper-logo" style="color:#ed1c24;">SCMP</div>
+                    <span style="font-size:0.8rem; font-weight:600; color:var(--text-secondary);">South China MP</span>
+                </a>
+                <a href="https://www.globaltimes.cn" target="_blank" class="paper-item">
+                    <div class="paper-logo" style="color:#d92121;">GT</div>
+                    <span style="font-size:0.8rem; font-weight:600; color:var(--text-secondary);">Global Times</span>
+                </a>
+                {% elif selected_country_name == "Russia" %}
+                <a href="https://www.themoscowtimes.com/" target="_blank" class="paper-item">
+                    <div class="paper-logo" style="color:#000;">MT</div>
+                    <span style="font-size:0.8rem; font-weight:600; color:var(--text-secondary);">Moscow Times</span>
+                </a>
+                <a href="https://www.rt.com/" target="_blank" class="paper-item">
+                    <div class="paper-logo" style="color:#7fb900;">RT</div>
+                    <span style="font-size:0.8rem; font-weight:600; color:var(--text-secondary);">RT News</span>
+                </a>
+                {% elif selected_country_name == "Germany" %}
+                <a href="https://www.spiegel.de/international/" target="_blank" class="paper-item">
+                    <div class="paper-logo" style="color:#e60005;">SPIEGEL</div>
+                    <span style="font-size:0.8rem; font-weight:600; color:var(--text-secondary);">Der Spiegel</span>
+                </a>
+                <a href="https://www.dw.com/en/" target="_blank" class="paper-item">
+                    <div class="paper-logo" style="color:#002d5a;">DW</div>
+                    <span style="font-size:0.8rem; font-weight:600; color:var(--text-secondary);">Deutsche Welle</span>
+                </a>
+                {% elif selected_country_name == "France" %}
+                <a href="https://www.lemonde.fr/en/" target="_blank" class="paper-item">
+                    <div class="paper-logo" style="color:#000;">LE MONDE</div>
+                    <span style="font-size:0.8rem; font-weight:600; color:var(--text-secondary);">Le Monde</span>
+                </a>
+                <a href="https://www.france24.com/en/" target="_blank" class="paper-item">
+                    <div class="paper-logo" style="color:#0099ff;">F24</div>
+                    <span style="font-size:0.8rem; font-weight:600; color:var(--text-secondary);">France 24</span>
+                </a>
+                {% elif selected_country_name == "Australia" %}
+                <a href="https://www.abc.net.au/news/" target="_blank" class="paper-item">
+                    <div class="paper-logo" style="color:#ffcc00;">ABC</div>
+                    <span style="font-size:0.8rem; font-weight:600; color:var(--text-secondary);">ABC News</span>
+                </a>
+                <a href="https://www.smh.com.au/" target="_blank" class="paper-item">
+                    <div class="paper-logo" style="color:#000;">SMH</div>
+                    <span style="font-size:0.8rem; font-weight:600; color:var(--text-secondary);">Sydney Herald</span>
+                </a>
+                {% elif selected_country_name == "India" %}
+                <a href="https://timesofindia.indiatimes.com" target="_blank" class="paper-item">
+                    <div class="paper-logo" style="font-family:serif; color:#000;">TOI</div>
+                    <span style="font-size:0.8rem; font-weight:600; color:var(--text-secondary);">Times of India</span>
+                </a>
+                <a href="https://www.thehindu.com" target="_blank" class="paper-item">
+                    <div class="paper-logo" style="color:#000;">THE HINDU</div>
+                    <span style="font-size:0.8rem; font-weight:600; color:var(--text-secondary);">The Hindu</span>
+                </a>
+                <a href="https://indianexpress.com" target="_blank" class="paper-item">
+                    <div class="paper-logo" style="color:#000;">IE</div>
+                    <span style="font-size:0.8rem; font-weight:600; color:var(--text-secondary);">Indian Express</span>
+                </a>
+                {% else %}
                 <a href="https://indianexpress.com" target="_blank" class="paper-item">
                     <div class="paper-logo" style="color:#000;">IE</div>
                     <span style="font-size:0.8rem; font-weight:600; color:var(--text-secondary);">Indian Express</span>
@@ -376,6 +518,7 @@
                     <div class="paper-logo" style="font-family:serif; color:#000;">WSJ</div>
                     <span style="font-size:0.8rem; font-weight:600; color:var(--text-secondary);">WSJ</span>
                 </a>
+                {% endif %}
             </div>
         </section>
         {% endif %}

@@ -233,9 +233,10 @@ async function toggleSeeMore(btn, selector) {
         return;
     }
 
-    // Determine category from main data attribute
+    // Determine category and country from main-content data attributes
     const mainContent = document.querySelector('.main-content');
     let category = mainContent.getAttribute('data-category') || 'top_stories';
+    const country = mainContent.getAttribute('data-country') || '';
 
     // Override if clicking on breaking news specifically
     if (selector.includes('breaking')) category = "breaking_news";
@@ -250,7 +251,7 @@ async function toggleSeeMore(btn, selector) {
 
         // Calculate current items based on the selector
         const currentItems = container.querySelectorAll(selector).length;
-        const response = await fetch(`/api/more-stories/${encodeURIComponent(category)}/${currentItems}`);
+        const response = await fetch(`/api/more-stories/${encodeURIComponent(category)}/${currentItems}${country ? '?country=' + country : ''}`);
 
         if (!response.ok) throw new Error("API Failure");
         const data = await response.json();
@@ -404,7 +405,9 @@ function initializeBreakingNewsRefresh() {
     // Refresh breaking news every 5 minutes
     setInterval(async () => {
         try {
-            const response = await fetch('/api/breaking-news');
+            const mainContent = document.querySelector('.main-content');
+            const country = mainContent ? mainContent.getAttribute('data-country') : '';
+            const response = await fetch(`/api/breaking-news${country ? '?country=' + country : ''}`);
             if (response.ok) {
                 const data = await response.json();
                 updateBreakingNewsSection(data.breaking_news);
@@ -412,7 +415,7 @@ function initializeBreakingNewsRefresh() {
         } catch (e) {
             console.error('Failed to refresh breaking news:', e);
         }
-    }, 5 * 60 * 1000); // 5 minutes
+    }, 15 * 60 * 1000); // 15 minutes (Synced with news cycle)
 }
 
 function updateBreakingNewsSection(breakingNews) {
@@ -423,7 +426,7 @@ function updateBreakingNewsSection(breakingNews) {
     if (!itemsContainer) return;
 
     // Build new HTML for breaking cards to match dashboard.html structure
-    const newCardsHtml = breakingNews.slice(0, 20).map((item, index) => {
+    const newCardsHtml = breakingNews.slice(0, 100).map((item, index) => {
         const headline = item.headline || item.title || "";
         const fallback = getCategoryFallback('breaking', headline, index);
         const imgUrl = item.image_url || fallback;
@@ -616,8 +619,36 @@ function expandBreakingNews() {
     if (btn) btn.style.display = 'none'; // Hide button after click
 }
 
+// ===== MARKET & WEATHER LOGIC =====
+function initializeTicker() {
+    const ticker = document.getElementById('market-ticker');
+    if (!ticker) return;
+
+    // Clone ticker items for seamless loop
+    const items = ticker.innerHTML;
+    ticker.innerHTML = items + items + items; // Triple for safety in wide screens
+}
+
+function initializeWeather() {
+    const weatherTemp = document.getElementById('weather-temp');
+    if (!weatherTemp) return;
+
+    // Localized base temperatures
+    const countryTemps = {
+        'USA': 55, 'UK': 42, 'China': 48, 'Japan': 45, 'India': 82,
+        'Russia': 12, 'Germany': 38, 'France': 46, 'Australia': 78, 'Global': 65
+    };
+
+    const loc = document.querySelector('.weather-loc').innerText || 'Global';
+    const base = countryTemps[loc] || 65;
+    const vari = Math.floor(Math.random() * 5) - 2;
+    weatherTemp.innerText = `${base + vari}°F`;
+}
+
 // Initialize on Load
 document.addEventListener('DOMContentLoaded', () => {
     initBreakingLayout();
+    initializeTicker();
+    initializeWeather();
     if (window.initializeSeeMore) window.initializeSeeMore();
 });

@@ -114,8 +114,9 @@ Generate JSON with:
 5. why_it_matters: String (Impact on team, player, tournament, or fans)
 6. next_update: String (label uncertainty clearly)
 7. urgency_tag: String (from rules above)
-8. category: "Sports" (if sports)
-9. impact_score: 1-10
+10. category: "Sports" (if sports)
+11. impact_score: 1-10
+12. primary_geography: "India" | "Japan" | "China" | "USA" | "UK" | "Global"
 
 IMPORTANT: Output ONLY valid JSON.
 """
@@ -141,6 +142,7 @@ IMPORTANT: Output ONLY valid JSON.
                 result["who_is_affected"] = f"Next Update: {result.get('next_update', 'TBD')}"
                 result["impact_tags"] = [result.get("urgency_tag", "Regular Update")]
                 result["category"] = "Sports"
+                result["country"] = result.get("primary_geography", "Global")
             
             return result
         except Exception as e:
@@ -163,7 +165,7 @@ IMPORTANT: Output ONLY valid JSON.
         - regulatory_changes, market_impact_short, market_impact_long, competitors, strategic_signals, recommendations, confidence_level.
         
         PART 2: DASHBOARD METADATA
-        - category, impact_score (1-10), sentiment, summary_bullets (5-7 points), bias_rating.
+        - category, impact_score (1-10), sentiment, summary_bullets (5-7 points), bias_rating, primary_geography (e.g. India, USA, China, Japan, Global).
         
         Output ONLY valid JSON.
         """
@@ -193,6 +195,7 @@ IMPORTANT: Output ONLY valid JSON.
             result["who_is_affected"] = result.get('competitors', 'General Public')
             result["short_term_impact"] = result.get('market_impact_short', 'Immediate awareness.')
             result["long_term_impact"] = result.get('market_impact_long', 'Future policy shifts.')
+            result["country"] = result.get('primary_geography', 'Global')
             
             return result
         except Exception as e:
@@ -274,7 +277,8 @@ IMPORTANT: Output ONLY valid JSON.
             "summary": "2-3 line summary",
             "business_impact": "Explanation of impact",
             "actionable_insight": "Risk or opportunity",
-            "who_is_affected": "Target audience"
+            "who_is_affected": "Target audience",
+            "primary_geography": "Primary country involved (e.g. India, China, Japan, Global)"
         }
 
         Language:

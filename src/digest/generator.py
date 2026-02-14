@@ -32,7 +32,7 @@ class DigestGenerator:
             cutoff_time = datetime.utcnow() - timedelta(hours=720)
             fresh_news = session.query(VerifiedNews).filter(
                 VerifiedNews.created_at >= cutoff_time
-            ).order_by(VerifiedNews.created_at.desc()).limit(300).all()
+            ).order_by(VerifiedNews.created_at.desc()).limit(600).all()
             
             if fresh_news:
                 articles_to_analyze = []
@@ -44,7 +44,8 @@ class DigestGenerator:
                         "source_name": n.raw_news.source_name if n.raw_news else "Unknown",
                         "published_at": n.published_at,
                         "url_to_image": n.raw_news.url_to_image if n.raw_news else None,
-                        "url": n.raw_news.url if n.raw_news else "#"
+                        "url": n.raw_news.url if n.raw_news else "#",
+                        "country": n.country
                     })
                 
                 # breaking_results = await breaking_analyzer.analyze_breaking_batch(articles_to_analyze)
@@ -77,7 +78,7 @@ class DigestGenerator:
                     })
                 
                 # Save to database and prepare for digest
-                for result in breaking_results[:50]:  # Up to 50 items
+                for result in breaking_results[:150]:  # Up to 150 items
                     original = result.get("original_article", {})
                     news_id = original.get("id")
                     
@@ -115,7 +116,8 @@ class DigestGenerator:
                         "impact_score": result.get("impact_score", 5),
                         "time_ago": f"{result.get('recency_minutes', 0)} min ago",
                         "url": original.get("url", "#"),
-                        "image_url": original.get("url_to_image")
+                        "image_url": original.get("url_to_image"),
+                        "country": original.get("country") or (original.get("original_article", {}).get("country") if isinstance(original, dict) else None)
                     })
                 
                 session.commit()
@@ -153,6 +155,9 @@ class DigestGenerator:
         other_news = [n for n in potential_top if n.category != "Business & Economy"]
         
         top_10_pool = biz_news[:5] + random.sample(other_news, min(10 - len(biz_news[:5]), len(other_news)))
+        if len(top_10_pool) < 10:
+             # Ensure we try to get up to 10 if pool is larger
+             top_10_pool = sorted_news[:10]
         random.shuffle(top_10_pool)
 
         # 2. Categories
@@ -163,11 +168,56 @@ class DigestGenerator:
             "Environment & Climate", "Lifestyle & Wellness", "Defense & Security"
         ]
         categories = {cat: [] for cat in mandatory_categories}
+        countries = {"India": [], "USA": [], "China": [], "Japan": [], "UK": [], "Global": []}
 
-        for n in sorted_news[:400]:  # Significantly increased to ensure all 14 categories are populated
+        # 2.A Populate Countries from ALL recent news (not just top 400)
+        for n in recent_news:
+             country_code = n.country
+             if not country_code:
+                 continue
+             
+             country_map = {"us": "USA", "cn": "China", "jp": "Japan", "in": "India", "gb": "UK"}
+             name = country_map.get(country_code.lower(), country_code.capitalize())
+             
+             item_data = {
+                "id": n.id,
+                "title": n.title,
+                "url": n.raw_news.url if n.raw_news else "#",
+                "source_name": n.raw_news.source_name if n.raw_news else "Verified Source",
+                "why": n.why_it_matters,
+                "affected": n.who_is_affected or "General Industry",
+                "tags": n.impact_tags or ["Market"],
+                "bias": n.bias_rating or "Neutral",
+                "image_url": n.raw_news.url_to_image if n.raw_news else None,
+                "bullets": n.summary_bullets or [n.title],
+                "country": name
+             }
+             
+             if name in countries:
+                 countries[name].append(item_data)
+             else:
+                 if name not in countries: countries[name] = []
+                 countries[name].append(item_data)
+
+        # 2.B Populate Categories (Keep 400 limit for headlines)
+        for n in sorted_news[:400]:
             cat = n.category or "Breaking News"
             
-            # Strict Business Filtering
+            item_data = {
+                "id": n.id,
+                "title": n.title,
+                "url": n.raw_news.url if n.raw_news else "#",
+                "source_name": n.raw_news.source_name if n.raw_news else "Verified Source",
+                "why": n.why_it_matters,
+                "affected": n.who_is_affected or "General Industry",
+                "tags": n.impact_tags or ["Market"],
+                "bias": n.bias_rating or "Neutral",
+                "image_url": n.raw_news.url_to_image if n.raw_news else None,
+                "bullets": n.summary_bullets or [n.title],
+                "country": n.country or "Global"
+            }
+
+            # Strict Business Filtering (apply to category only)
             if cat == "Business & Economy":
                 text_to_check = ((n.title or "") + " " + (n.raw_news.description or "")).lower()
                 business_keywords = [
@@ -180,25 +230,23 @@ class DigestGenerator:
                     if "tech" in text_to_check or "ai" in text_to_check:
                         cat = "Technology"
                     else:
-                        continue # Skip non-business articles in Business section
+                        # If it's not business or tech, don't add to a specific category, but still add to country
+                        cat = None # Mark as not fitting a specific category for now
 
-            if cat in categories:
-                categories[cat].append({
-                    "id": n.id,
-                    "title": n.title,
-                    "url": n.raw_news.url if n.raw_news else "#",
-                    "source_name": n.raw_news.source_name if n.raw_news else "Verified Source",
-                    "why": n.why_it_matters,
-                    "affected": n.who_is_affected or "General Industry",
-                    "tags": n.impact_tags or ["Market"],
-                    "bias": n.bias_rating or "Neutral",
-                    "image_url": n.raw_news.url_to_image if n.raw_news else None
-                })
+            # Add to category
+            if cat and cat in categories:
+                categories[cat].append(item_data)
+            
+            # Add to Global bucket if no country
+            if not n.country:
+                countries["Global"].append(item_data)
 
         # 2.5 Trending in India (New)
         trending_raw = session.query(RawNews).filter(
-            (RawNews.source_name.like("%Google News%")) | (RawNews.source_name.like("%Reddit%"))
-        ).order_by(RawNews.published_at.desc()).limit(20).all()  # Increased to 20
+            (RawNews.source_name.like("%Google News%")) | 
+            (RawNews.source_name.like("%Reddit%")) |
+            (RawNews.country != None)
+        ).order_by(RawNews.published_at.desc()).limit(50).all()
 
         trending_list = []
         for t in trending_raw:
@@ -210,7 +258,8 @@ class DigestGenerator:
                 "engagement": "Trending",
                 "time_ago": "Recently",
                 "url": t.url,
-                "image_url": t.url_to_image
+                "image_url": t.url_to_image,
+                "country": t.country
             })
 
         # 3. Twitter Intelligence
@@ -296,17 +345,34 @@ class DigestGenerator:
             "trending_news": trending_list[:15],  # Increased to 15
             "brief": [], # Will populate below
             "categories": categories,
+            "countries": countries,
             "insight": "Intelligence analysis complete. Major shifts detected in tech and policy sectors.",
             "generated_at": datetime.utcnow().isoformat()
         }
 
-        # Ensure 60-second brief is ALWAYS populated with 25 items
-        brief_items = [{"id": n.id, "title": n.title} for n in sorted_news[:25]]
-        if len(brief_items) < 25:
-            # Fallback to RawNews if verified is dry
-            extra_raw = session.query(RawNews).order_by(RawNews.published_at.desc()).limit(25 - len(brief_items)).all()
+        # Ensure 60-second brief is ALWAYS populated with enough for filtering
+        # 1. Start with Top 25 Ranked (Global/High Impact)
+        brief_items = [{"id": n.id, "title": n.title, "country": n.country} for n in sorted_news[:25]]
+        
+        # 2. Add snippets from each country node to ensure filtering works
+        for country_name, stories in countries.items():
+            if country_name == "Global": continue
+            # Add top 5 from each country if not already in brief
+            for s in stories[:5]:
+                if s["id"] not in [b["id"] for b in brief_items]:
+                    brief_items.append({"id": s["id"], "title": s["title"], "country": s.get("country")})
+
+        if len(brief_items) < 100:
+            # Fallback to Top Sorted if still dry
+            for n in sorted_news[25:100]:
+                if n.id not in [b["id"] for b in brief_items]:
+                    brief_items.append({"id": n.id, "title": n.title, "country": n.country})
+
+        # Fallback to RawNews if verified is dry
+        if len(brief_items) < 100:
+            extra_raw = session.query(RawNews).order_by(RawNews.published_at.desc()).limit(100 - len(brief_items)).all()
             for r in extra_raw:
-                brief_items.append({"id": f"raw-{r.id}", "title": r.title + " (Raw Feed)"})
+                brief_items.append({"id": f"raw-{r.id}", "title": r.title + " (Raw Feed)", "country": r.country})
         
         digest_data["brief"] = brief_items
 

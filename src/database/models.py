@@ -27,6 +27,7 @@ class RawNews(Base):
     is_verified = Column(Boolean, default=False)
     verification_score = Column(Float, default=0.0)
     processed = Column(Boolean, default=False)
+    country = Column(String, nullable=True, index=True)
 
 class VerifiedNews(Base):
     __tablename__ = "verified_news"
@@ -43,6 +44,7 @@ class VerifiedNews(Base):
     bias_rating = Column(String) # e.g. "Neutral", "Slightly Biased"
     
     category = Column(String, index=True)
+    country = Column(String, nullable=True, index=True)
     credibility_score = Column(Float)
     impact_score = Column(Integer) # 1-10
     why_it_matters = Column(Text)
@@ -66,6 +68,7 @@ class VerifiedNews(Base):
             "impact_tags": self.impact_tags,
             "bias_rating": self.bias_rating,
             "category": self.category,
+            "country": self.country,
             "credibility_score": self.credibility_score,
             "impact_score": self.impact_score,
             "why_it_matters": self.why_it_matters,

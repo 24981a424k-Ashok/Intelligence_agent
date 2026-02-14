@@ -56,20 +56,22 @@ class NewsCollector:
             )
 
             # 4. Search for recent sports and business news specifically to broaden density
-            # Use 'everything' endpoint for more breadth when headlines are dry
-            search_response = self.client.get_everything(
-                q='sports OR "IPL" OR "Cricket" OR "Football"',
-                language='en',
-                sort_by='publishedAt',
-                page_size=40
-            )
+            # DISABLED for FREE TIER: get_everything is restricted
+            search_response = {'status': 'ok', 'articles': []}
+            # search_response = self.client.get_everything(
+            #     q='sports OR "IPL" OR "Cricket" OR "Football"',
+            #     language='en',
+            #     sort_by='publishedAt',
+            #     page_size=40
+            # )
 
-            biz_search = self.client.get_everything(
-                q='business OR economy OR startup OR "Stock Market"',
-                language='en',
-                sort_by='publishedAt',
-                page_size=40
-            )
+            biz_search = {'status': 'ok', 'articles': []}
+            # biz_search = self.client.get_everything(
+            #     q='business OR economy OR startup OR "Stock Market"',
+            #     language='en',
+            #     sort_by='publishedAt',
+            #     page_size=40
+            # )
 
             all_articles = []
             if response['status'] == 'ok':
@@ -87,6 +89,24 @@ class NewsCollector:
             if biz_search['status'] == 'ok':
                 all_articles.extend(biz_search.get('articles', []))
             
+            # 5. Dedicated Country Fetch (Japan, China, USA)
+            target_countries = ['jp', 'cn', 'us']
+            for country_code in target_countries:
+                try:
+                    country_res = self.client.get_top_headlines(
+                        language='en' if country_code != 'jp' and country_code != 'cn' else None,
+                        country=country_code,
+                        page_size=20
+                    )
+                    if country_res['status'] == 'ok':
+                        # Tag these articles with the country code before saving
+                        articles = country_res.get('articles', [])
+                        for a in articles:
+                            a['target_country'] = country_code
+                        all_articles.extend(articles)
+                except Exception as ce:
+                    logger.warning(f"Failed to fetch news for {country_code}: {ce}")
+
             saved_count = self._save_articles(all_articles)
             return saved_count
             
@@ -135,7 +155,8 @@ class NewsCollector:
                     url=url,
                     url_to_image=article.get('urlToImage'),
                     published_at=pub_dt,
-                    content=article.get('content')
+                    content=article.get('content'),
+                    country=article.get('target_country')
                 )
                 session.add(raw_news)
                 count += 1
