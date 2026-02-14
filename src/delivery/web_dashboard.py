@@ -187,9 +187,10 @@ async def dashboard(request: Request, category: str = None, country: str = None,
         else:
             # NO regional stories? 
             # Smart Fallback: Show global but label as such
-            if "top_stories" in digest_data:
-                for s in digest_data["top_stories"]:
-                    s["is_global_fallback"] = True
+            for section in ["top_stories", "breaking_news", "trending_news"]:
+                if section in digest_data:
+                    for s in digest_data[section]:
+                        s["is_global_fallback"] = True
             
             digest_data["is_empty_regional"] = True
             trending_title = f"{target_name} Node: Regional Intel Pending"
