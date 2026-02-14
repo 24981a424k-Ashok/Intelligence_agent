@@ -36,6 +36,7 @@ def initialize_firebase():
                 cred = credentials.Certificate(service_account_path)
                 firebase_admin.initialize_app(cred)
                 logger.info("Firebase Admin SDK initialized with service account file.")
+                return
             # Ensure GOOGLE_CLOUD_PROJECT is set for Firebase Admin
             if not os.getenv("GOOGLE_CLOUD_PROJECT") and os.getenv("FIREBASE_PROJECT_ID"):
                 os.environ["GOOGLE_CLOUD_PROJECT"] = os.getenv("FIREBASE_PROJECT_ID")
