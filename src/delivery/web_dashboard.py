@@ -600,7 +600,6 @@ async def mock_test_page(request: Request):
     }
     return templates.TemplateResponse("mock_test.html", {"request": request, "firebase_config": firebase_config})
 
-@router.post("/api/generate-exam")
 @router.post("/api/sync-intelligence")
 async def force_sync_intelligence(background_tasks: BackgroundTasks):
     """Manually trigger a full news collection and analysis cycle"""
@@ -630,6 +629,7 @@ async def system_check(db: Session = Depends(get_db)):
     }
 
 
+@router.post("/api/generate-exam")
 async def generate_mock_exam(db: Session = Depends(get_db)):
     """Generate a quick mock test from recent news"""
     # Import here to avoid circular dependency if any
