@@ -74,6 +74,21 @@ async def lifespan(app: FastAPI):
     # Start Scheduler
     scheduler = start_scheduler()
     logger.info("Scheduler started.")
+
+    # Auto-trigger news cycle if DB is empty (Cold Start)
+    from src.database.models import SessionLocal, VerifiedNews
+    db = SessionLocal()
+    try:
+        if db.query(VerifiedNews).count() == 0:
+            logger.info("🥶 Cold Start Detected: Triggering immediate background news cycle...")
+            from src.scheduler.task_scheduler import run_news_cycle
+            asyncio.create_task(run_news_cycle())
+        else:
+            logger.info("✅ Database has data. Waiting for scheduled cycle.")
+    except Exception as e:
+        logger.error(f"Failed to auto-trigger news cycle: {e}")
+    finally:
+        db.close()
     
     yield
     
