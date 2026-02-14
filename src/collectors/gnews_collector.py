@@ -86,6 +86,8 @@ class GNewsCollector:
                         if country == 'ru': params['lang'] = 'ru'
                         if country == 'de': params['lang'] = 'de'
                         if country == 'fr': params['lang'] = 'fr'
+                        if country == 'ae': params['lang'] = 'ar' # Added Arabic for UAE
+                        if country == 'in': params['lang'] = 'en' # India often wants English, but can support 'hi' if requested
                     
                     response = requests.get(f"{self.base_url}/{endpoint}", params=params)
                     if response.status_code == 200:

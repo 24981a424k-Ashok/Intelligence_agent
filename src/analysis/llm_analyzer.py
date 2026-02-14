@@ -167,6 +167,11 @@ IMPORTANT: Output ONLY valid JSON.
         PART 2: DASHBOARD METADATA
         - category, impact_score (1-10), sentiment, summary_bullets (5-7 points), bias_rating, primary_geography (e.g. India, USA, China, Japan, Global).
         
+        LANGUAGE REQUIREMENT:
+        - Detect the detected language of the article content (e.g. Japanese, Chinese, Arabic).
+        - IMPORTANT: Generate 'headline', 'summary_bullets', 'why_it_matters', and 'impact' fields IN THE SAME LANGUAGE AS THE ARTICLE.
+        - Do NOT translate non-English news into English. Keep it authentic.
+        
         Output ONLY valid JSON.
         """
         try:

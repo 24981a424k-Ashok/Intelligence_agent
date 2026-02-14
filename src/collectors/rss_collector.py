@@ -71,17 +71,35 @@ RSS_FEEDS = {
     "military": "https://www.militarytimes.com/arc/outboundfeeds/rss/category/home/",
 
     # 15. Regional Fallbacks (To fix empty nodes)
-    "scmp-china": "https://www.scmp.com/rss/318199/feed",  # China
-    "japan-times": "https://www.japantimes.co.jp/feed/",   # Japan
-    "guardian-uk": "https://www.theguardian.com/uk/rss",   # UK
-    "dw-germany": "https://rss.dw.com/xml/rss-en-ger-news", # Germany
-    "france24": "https://www.france24.com/en/rss",         # France
-    "abc-australia": "https://www.abc.net.au/news/feed/5112088/rss.xml", # Australia
-    "moscow-times": "https://www.themoscowtimes.com/rss/news", # Russia
-    "straitstimes-singapore": "https://www.straitstimes.com/news/singapore/rss.xml", # Singapore
+    # 15. Regional Fallbacks (NATIVE LANGUAGE EDITIONS)
+    # China: Using Lianhe Zaobao (Singapore/China focus in Chinese) as mainland feeds are often blocked/unavailable
+    "zaobao-china": "https://www.zaobao.com.sg/rss/china.xml", 
+    
+    # Japan: NHK News (Japanese)
+    "nhk-japan": "https://www.nhk.or.jp/rss/news/cat0.xml",
+    
+    # UK: Guardian (English - Native)
+    "guardian-uk": "https://www.theguardian.com/uk/rss",
+
+    # Germany: Tagesschau (German)
+    "tagesschau-de": "https://www.tagesschau.de/xml/rss2/",
+
+    # France: Le Monde (French)
+    "lemonde-fr": "https://www.lemonde.fr/rss/une.xml",
+
+    # Australia: ABC (English - Native)
+    "abc-australia": "https://www.abc.net.au/news/feed/5112088/rss.xml",
+
+    # Russia: Kommersant (Russian)
+    "kommersant-ru": "https://www.kommersant.ru/RSS/news.xml",
+
+    # Singapore: Straits Times (English - Native)
+    "straitstimes-singapore": "https://www.straitstimes.com/news/singapore/rss.xml",
     
     # 16. Missing Markets (United States & UAE)
-    "khaleej-times": "https://www.khaleejtimes.com/rss/xml/nation", # UAE
+    # UAE: Al Bayan (Arabic)
+    "albayan-uae": "https://www.albayan.ae/rss",
+    
     "nyt-us": "https://rss.nytimes.com/services/xml/rss/nyt/US.xml", # USA
     "cnn-us": "http://rss.cnn.com/rss/cnn_us.rss" # USA
 }
@@ -205,16 +223,16 @@ class RSSCollector:
     def _detect_country(self, source_id: str) -> str:
         """Map source IDs to country codes for auto-tagging"""
         mapping = {
-            "scmp-china": "cn",
-            "japan-times": "jp",
+            "zaobao-china": "cn",
+            "nhk-japan": "jp",
             "guardian-uk": "gb",
             "bbc-news": "gb",
-            "dw-germany": "de",
-            "france24": "fr",
+            "tagesschau-de": "de",
+            "lemonde-fr": "fr",
             "abc-australia": "au",
-            "moscow-times": "ru",
+            "kommersant-ru": "ru",
             "straitstimes-singapore": "sg",
-            "khaleej-times": "ae",
+            "albayan-uae": "ae",
             "nyt-us": "us",
             "cnn-us": "us",
             "times-of-india": "in",
