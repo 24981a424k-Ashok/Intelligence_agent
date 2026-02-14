@@ -601,6 +601,35 @@ async def mock_test_page(request: Request):
     return templates.TemplateResponse("mock_test.html", {"request": request, "firebase_config": firebase_config})
 
 @router.post("/api/generate-exam")
+@router.post("/api/sync-intelligence")
+async def force_sync_intelligence(background_tasks: BackgroundTasks):
+    """Manually trigger a full news collection and analysis cycle"""
+    from src.scheduler.task_scheduler import run_news_cycle
+    
+    # Run helper to start the async cycle in background
+    async def _run_cycle():
+        try:
+            await run_news_cycle()
+        except Exception as e:
+            logger.error(f"Manual Sync Failed: {e}")
+
+    background_tasks.add_task(_run_cycle)
+    return {"status": "success", "message": "Intelligence scan initiated in background."}
+
+
+@router.get("/api/system-check")
+async def system_check(db: Session = Depends(get_db)):
+    """A detailed health check for debugging deployment environments"""
+    from src.database.models import RawNews, VerifiedNews, DailyDigest
+    return {
+        "raw_news_count": db.query(RawNews).count(),
+        "verified_news_count": db.query(VerifiedNews).count(),
+        "digest_count": db.query(DailyDigest).count(),
+        "has_news_api_key": bool(settings.NEWS_API_KEY),
+        "db_url_is_sqlite": settings.DATABASE_URL.startswith("sqlite")
+    }
+
+
 async def generate_mock_exam(db: Session = Depends(get_db)):
     """Generate a quick mock test from recent news"""
     # Import here to avoid circular dependency if any

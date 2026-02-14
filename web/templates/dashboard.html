@@ -309,7 +309,8 @@
                     currently gathering. Displaying **Global Intelligence** as a temporary backup.</p>
                 {% endif %}
                 <div style="display: flex; gap: 1rem; justify-content: center;">
-                    <button class="see-more-btn" onclick="window.location.reload()"
+                    <button class="see-more-btn"
+                        onclick="fetch('/api/sync-intelligence', {method: 'POST'}).then(() => window.location.reload())"
                         style="background: var(--accent-gold); color: black; border:none;">Try Sync Node</button>
                     <a href="/dashboard" class="see-more-btn"
                         style="text-decoration: none; display: inline-block; background: var(--bg-hover);">Main
