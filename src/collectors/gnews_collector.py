@@ -6,12 +6,14 @@ from typing import List, Dict, Any
 from src.database.models import SessionLocal, RawNews
 from dotenv import load_dotenv
 
+from src.config import settings
+
 load_dotenv()
 logger = logging.getLogger(__name__)
 
 class GNewsCollector:
     def __init__(self):
-        self.api_key = os.getenv("GNEWS_API_KEY")
+        self.api_key = settings.GNEWS_API_KEY
         self.base_url = "https://gnews.io/api/v4"
         if not self.api_key:
             logger.warning("GNews API Key is missing!")

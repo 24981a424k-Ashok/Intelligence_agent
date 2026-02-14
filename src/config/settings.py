@@ -23,6 +23,7 @@ DATA_DIR.mkdir(exist_ok=True, parents=True)
 
 # API Keys
 NEWS_API_KEY = os.getenv("NEWS_API_KEY")
+GNEWS_API_KEY = os.getenv("GNEWS_API_KEY")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 # Firebase Config
