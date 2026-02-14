@@ -295,16 +295,16 @@
 
             {% if digest.is_empty_regional %}
             <div class="empty-node-notice fade-in"
-                style="background: rgba(59, 130, 246, 0.1); border: 1px solid var(--accent-blue); padding: 2rem; border-radius: 12px; margin-bottom: 2rem; text-align: center;">
-                <h3 style="color: var(--accent-blue); margin-bottom: 0.5rem;">📡 Intelligence Feed Under Maintenance
-                </h3>
-                <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">Specific intelligence for this node is
-                    being processed in the current 15-minute cycle.</p>
+                style="background: rgba(251, 188, 4, 0.1); border: 1px solid var(--accent-gold); padding: 2rem; border-radius: 12px; margin-bottom: 2rem; text-align: center;">
+                <h3 style="color: var(--accent-gold); margin-bottom: 0.5rem;">📡 Node Intelligence Backup Active</h3>
+                <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">Regional news for this specific node is
+                    currently gathering. Displaying **Global Intelligence** as a temporary backup.</p>
                 <div style="display: flex; gap: 1rem; justify-content: center;">
-                    <a href="/dashboard" class="see-more-btn"
-                        style="text-decoration: none; display: inline-block;">Return to Global</a>
                     <button class="see-more-btn" onclick="window.location.reload()"
-                        style="background: var(--bg-hover);">Try Refresh</button>
+                        style="background: var(--accent-gold); color: black; border:none;">Try Sync Node</button>
+                    <a href="/dashboard" class="see-more-btn"
+                        style="text-decoration: none; display: inline-block; background: var(--bg-hover);">Main
+                        Dashboard</a>
                 </div>
             </div>
             {% endif %}

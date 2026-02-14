@@ -25,8 +25,13 @@
 
     <div class="intel-header">
         <div style="display:flex; justify-content:space-between; margin-bottom:0.5rem;">
-            <span style="color:var(--accent-blue); font-size:0.8rem; font-weight:700;">VERIFIED: {{
-                story.source_name }}</span>
+            <span style="color:var(--accent-blue); font-size:0.8rem; font-weight:700;">
+                {% if story.is_global_fallback %}
+                <span style="color:var(--accent-gold);">[GLOBAL]</span> {{ story.source_name }}
+                {% else %}
+                VERIFIED: {{ story.source_name }}
+                {% endif %}
+            </span>
             <span style="color:var(--text-secondary); font-size:0.8rem;">{{ story.bias }}</span>
         </div>
         <h3 class="intel-title">{{ story.title }}</h3>

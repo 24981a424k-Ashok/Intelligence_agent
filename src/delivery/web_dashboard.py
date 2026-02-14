@@ -82,10 +82,26 @@ def normalize_country(c):
         "jp": "Japan", "cn": "China", "us": "USA", "in": "India", "gb": "UK",
         "ru": "Russia", "de": "Germany", "fr": "France", "au": "Australia", "sg": "Singapore", "ae": "UAE"
     }
+    # Reverse mapping: "India" -> "in"
+    rev_mapping = {v.lower(): k for k, v in mapping.items()}
+    
     val = c.lower().strip()
-    name = mapping.get(val, c.capitalize())
-    # Return name and list of potential match keys (Extensive case matching)
-    match_keys = [val, val.upper(), name, name.lower(), name.upper(), val.capitalize()]
+    # Find canonical name
+    if val in mapping:
+        name = mapping[val]
+        code = val
+    elif val in rev_mapping:
+        name = val.capitalize()
+        if val == "usa": name = "USA"
+        if val == "uae": name = "UAE"
+        if val == "uk": name = "UK"
+        code = rev_mapping[val]
+    else:
+        name = c.capitalize()
+        code = val # Fallback
+
+    # Build exhaustive match keys
+    match_keys = [val, val.upper(), val.capitalize(), name, name.lower(), name.upper(), code, code.upper()]
     return name, list(set(match_keys))
 
 def get_db():
@@ -170,10 +186,13 @@ async def dashboard(request: Request, category: str = None, country: str = None,
             trending_title = f"Trending in {target_name}"
         else:
             # NO regional stories? 
-            # We will show a clear message and offer global results as a SECONDARY option in the UI
-            digest_data["top_stories"] = [] 
+            # Smart Fallback: Show global but label as such
+            if "top_stories" in digest_data:
+                for s in digest_data["top_stories"]:
+                    s["is_global_fallback"] = True
+            
             digest_data["is_empty_regional"] = True
-            trending_title = f"{target_name} Node: Gathering Intelligence..."
+            trending_title = f"{target_name} Node: Regional Intel Pending"
             
         # 3. Filter ALL OTHER SECTIONS strictly (Breaking/Trending/Brief)
         for section in ["breaking_news", "brief", "trending_news"]:
