@@ -128,9 +128,31 @@ async def dashboard(request: Request, category: str = None, country: str = None,
     # Get latest published digest
     latest_digest = db.query(DailyDigest).filter(DailyDigest.is_published == True).order_by(DailyDigest.date.desc()).first()
     
-    # Fallback to ANY digest if no explicitly published one exists (backwards compatibility)
     if not latest_digest:
         latest_digest = db.query(DailyDigest).order_by(DailyDigest.date.desc()).first()
+
+    # Initialization Diagnostics (For "Why" it's empty)
+    from src.database.models import RawNews, VerifiedNews
+    raw_count = db.query(RawNews).count()
+    verified_count = db.query(VerifiedNews).count()
+    has_keys = bool(settings.NEWS_API_KEY)
+
+    system_status = "Syncing"
+    if not has_keys:
+        system_status = "Configuration Alert: API Keys Missing on Server"
+    elif raw_count == 0:
+        system_status = "Collecting: Scanning Global News Sources..."
+    elif verified_count == 0:
+        system_status = "Analyzing: AI is verifying collected intelligence..."
+    elif not latest_digest:
+        system_status = "Promoting: Finalizing intelligence dashboard..."
+
+    digest_data = copy.deepcopy(latest_digest.content_json) if latest_digest else {
+        "top_stories": [], "breaking_news": [], "trending_news": [], "brief": [],
+        "is_system_initializing": True,
+        "is_empty_regional": True,
+        "system_status_msg": system_status
+    }
 
     firebase_config = {
         "apiKey": settings.FIREBASE_API_KEY,
@@ -140,8 +162,6 @@ async def dashboard(request: Request, category: str = None, country: str = None,
         "messagingSenderId": settings.FIREBASE_MESSAGING_SENDER_ID,
         "appId": settings.FIREBASE_APP_ID
     }
-
-    digest_data = copy.deepcopy(latest_digest.content_json) if latest_digest else None
     
     # 1. Standardize Country Context
     selected_country = country

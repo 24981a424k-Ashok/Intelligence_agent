@@ -298,6 +298,8 @@
                 style="background: rgba(251, 188, 4, 0.1); border: 1px solid var(--accent-gold); padding: 2rem; border-radius: 12px; margin-bottom: 2rem; text-align: center;">
                 {% if digest.is_system_initializing %}
                 <h3 style="color: var(--accent-gold); margin-bottom: 0.5rem;">⚙️ Global System Initializing</h3>
+                <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">Status: <strong
+                        style="color:var(--accent-gold)">{{ digest.system_status_msg or 'Syncing...' }}</strong></p>
                 <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">The AI Intelligence engine is performing
                     its first
                     major sync with world news sources. This node will be active within 5-10 minutes.</p>
