@@ -1,6 +1,6 @@
 import os
 import copy
-from fastapi import APIRouter, Request, Depends, HTTPException
+from fastapi import APIRouter, Request, Depends, HTTPException, BackgroundTasks
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 from src.database.models import SessionLocal, DailyDigest, User, VerifiedNews, Subscription
