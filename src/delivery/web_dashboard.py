@@ -206,6 +206,10 @@ async def dashboard(request: Request, category: str = None, country: str = None,
                         if (item.get("country") in match_keys) or (item.get("country_name") in match_keys)
                     ]
                     digest_data[section] = filtered
+        
+        # 4. Check for Cold Start (No global fallback either)
+        if digest_data.get("is_empty_regional") and not digest_data.get("top_stories"):
+            digest_data["is_system_initializing"] = True
 
 
     # Filter by Category if requested (if country is null)

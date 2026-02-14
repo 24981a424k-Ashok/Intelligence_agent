@@ -296,9 +296,16 @@
             {% if digest.is_empty_regional %}
             <div class="empty-node-notice fade-in"
                 style="background: rgba(251, 188, 4, 0.1); border: 1px solid var(--accent-gold); padding: 2rem; border-radius: 12px; margin-bottom: 2rem; text-align: center;">
+                {% if digest.is_system_initializing %}
+                <h3 style="color: var(--accent-gold); margin-bottom: 0.5rem;">⚙️ Global System Initializing</h3>
+                <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">The AI Intelligence engine is performing
+                    its first
+                    major sync with world news sources. This node will be active within 5-10 minutes.</p>
+                {% else %}
                 <h3 style="color: var(--accent-gold); margin-bottom: 0.5rem;">📡 Node Intelligence Backup Active</h3>
                 <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">Regional news for this specific node is
                     currently gathering. Displaying **Global Intelligence** as a temporary backup.</p>
+                {% endif %}
                 <div style="display: flex; gap: 1rem; justify-content: center;">
                     <button class="see-more-btn" onclick="window.location.reload()"
                         style="background: var(--accent-gold); color: black; border:none;">Try Sync Node</button>
