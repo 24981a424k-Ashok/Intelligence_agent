@@ -1,4 +1,5 @@
 import os
+import copy
 from fastapi import APIRouter, Request, Depends, HTTPException
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
@@ -110,11 +111,12 @@ async def dashboard(request: Request, category: str = None, country: str = None,
         "appId": settings.FIREBASE_APP_ID
     }
 
-    digest_data = latest_digest.content_json if latest_digest else None
+    digest_data = copy.deepcopy(latest_digest.content_json) if latest_digest else None
     
     # Filter by Country if requested (Takes priority over category)
     selected_country = country
     selected_category = category
+    selected_country_name = None
 
     if digest_data and country:
         countries_data = digest_data.get("countries", {})
@@ -125,14 +127,25 @@ async def dashboard(request: Request, category: str = None, country: str = None,
             "jp": "Japan", "cn": "China", "us": "USA", "in": "India", "gb": "UK",
             "ru": "Russia", "de": "Germany", "fr": "France", "au": "Australia", "sg": "Singapore", "ae": "UAE"
         }
-        if country.lower() in code_map: target_country = code_map[country.lower()]
+        if country.lower() in code_map: 
+            target_country = code_map[country.lower()]
+        
+        selected_country_name = target_country
 
         country_stories = []
+        # Find matching stories by checking name and code
         for k, v in countries_data.items():
             if k.lower() == country.lower() or k.lower() == target_country.lower():
                 country_stories = v
                 break
         
+        # Also check Top Stories directly for country tag
+        if not country_stories and "top_stories" in digest_data:
+            country_stories = [
+                s for s in digest_data["top_stories"] 
+                if s.get("country") == target_country or s.get("country") == target_country.lower() or s.get("country") == country.lower()
+            ]
+
         if country_stories:
             # Normalize format to match top_stories
             normalized_stories = []
@@ -175,11 +188,11 @@ async def dashboard(request: Request, category: str = None, country: str = None,
                     if item.get("country") == target_country or item.get("country") == target_country.lower() or item.get("country") == country.lower()
                 ]
             
-            # 4. Set Trending Title
-            context_updates = {
-                "trending_title": f"Trending in {target_country}",
-                "selected_country_name": target_country
-            }
+            # Set Trending Title
+            trending_title = f"Trending in {target_country}"
+        else:
+            trending_title = f"Nodes: {target_country} (Initializing...)"
+
 
     # Filter by Category if requested (if country is null)
     elif digest_data and category:
@@ -249,8 +262,9 @@ async def dashboard(request: Request, category: str = None, country: str = None,
         "firebase_config": firebase_config,
         "vapid_public_key": settings.VAPID_PUBLIC_KEY,
         "selected_category": selected_category,
-        "trending_title": locals().get("context_updates", {}).get("trending_title", "Trending Feed"),
-        "selected_country_name": locals().get("context_updates", {}).get("selected_country_name")
+        "selected_country": selected_country,
+        "trending_title": locals().get("trending_title", "Trending Feed"),
+        "selected_country_name": selected_country_name
     }
     
     # Filter Global View (Home) for English only
