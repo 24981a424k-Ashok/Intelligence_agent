@@ -13,16 +13,27 @@ logger = logging.getLogger(__name__)
 
 class GNewsCollector:
     def __init__(self):
-        self.api_key = settings.GNEWS_API_KEY
+        self.api_keys = []
+        if settings.GNEWS_API_KEY:
+            self.api_keys.append(settings.GNEWS_API_KEY)
+        if settings.GNEWS_API_KEY_2:
+            self.api_keys.append(settings.GNEWS_API_KEY_2)
+            
         self.base_url = "https://gnews.io/api/v4"
-        if not self.api_key:
+        if not self.api_keys:
             logger.warning("GNews API Key is missing!")
+            
+    def _get_api_key(self):
+        """Rotate keys to distribute load"""
+        import random
+        if not self.api_keys: return None
+        return random.choice(self.api_keys)
 
     def fetch_country_news(self, countries: List[str] = ['us', 'gb', 'jp', 'cn', 'in', 'ru', 'de', 'fr', 'au', 'sg', 'ae']) -> int:
         """
         Fetch specialized intelligence and top headlines for specific countries.
         """
-        if not self.api_key:
+        if not self.api_keys:
             return 0
 
         total_saved = 0
@@ -39,14 +50,14 @@ class GNewsCollector:
             'in': '("Policy" OR "Market" OR "Economy" OR "Tech" OR "Startup" OR "Infrastructure")'
         }
 
-        # OPTIMIZATION: Rotate countries to avoid Rate Limits (100 req/day limit)
-        # 15 min cycle = 96 runs/day. To stay under 100, we can only make ~1 request per run.
-        # But we need density. Let's pick 2 random countries per cycle.
-        # Over 24 hours, all countries will be covered multiple times.
+        # OPTIMIZATION: Rotate countries to avoid Rate Limits (now 200 req/day with 2 keys)
+        # 15 min cycle = 96 runs/day. 
+        # With 2 keys, we can afford ~2 req/run * 2 keys = 4 requests per run?
+        # Let's increase target countries to 3 to be safe and cover more ground.
         import random
         random.shuffle(countries)
-        target_countries = countries[:2] # Pick top 2 after shuffle
-        logger.info(f"GNews: Rotating targets for this cycle: {target_countries}")
+        target_countries = countries[:3] # Increased from 2 to 3
+        logger.info(f"GNews: Rotating targets for this cycle (using pool of {len(self.api_keys)} keys): {target_countries}")
 
         for country in target_countries:
             try:
@@ -56,13 +67,14 @@ class GNewsCollector:
 
                 for query in queries:
                     endpoint = "search" if query else "top-headlines"
+                    current_key = self._get_api_key()
                     logger.info(f"GNews: Fetching {endpoint} for {country} (Query: {query})...")
                     
                     params = {
                         "lang": "en" if country not in ['jp', 'cn', 'ru', 'de', 'fr'] else None,
                         "country": country,
                         "max": 10,
-                        "apikey": self.api_key
+                        "apikey": current_key
                     }
                     
                     if query: params["q"] = query
