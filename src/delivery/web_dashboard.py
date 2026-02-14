@@ -166,18 +166,24 @@ async def dashboard(request: Request, category: str = None, country: str = None,
                     "time_ago": s.get("time_ago", "Just Now")
                 })
             digest_data["top_stories"] = normalized_stories
+            trending_title = f"Trending in {target_name}"
         else:
-            digest_data["top_stories"] = [] # Force empty rather than global
+            # SAFE FALLBACK: If no regional stories, show global top stories but label clearly
+            # This prevents the page from being entirely empty.
+            if "top_stories" in digest_data:
+                # Add a virtual tag to each story indicating it is global fallback
+                for s in digest_data["top_stories"]:
+                    s["is_global_fallback"] = True
+            trending_title = f"{target_name} Node: Global News"
             
-        # 3. Filter ALL OTHER SECTIONS strictly
+        # 3. Filter ALL OTHER SECTIONS strictly (Breaking/Trending/Brief)
+        # These should remain empty if no regional data exists to maintain accuracy
         for section in ["breaking_news", "brief", "trending_news"]:
             if section in digest_data:
                 digest_data[section] = [
                     item for item in digest_data[section]
                     if (item.get("country") in match_keys) or (item.get("country_name") in match_keys)
                 ]
-        
-        trending_title = f"Trending in {target_name}"
 
 
     # Filter by Category if requested (if country is null)
