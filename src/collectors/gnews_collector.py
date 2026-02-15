@@ -54,10 +54,27 @@ class GNewsCollector:
         # 15 min cycle = 96 runs/day. 
         # With 2 keys, we can afford ~2 req/run * 2 keys = 4 requests per run?
         # Let's increase target countries to 3 to be safe and cover more ground.
+        target_countries = []
+        priority_countries = ['cn', 'au', 'in']
+        
+        # 1. Add priority countries first
+        for pc in priority_countries:
+            if pc in countries:
+                target_countries.append(pc)
+        
+        # 2. Fill remaining slots with random countries
+        remaining = [c for c in countries if c not in target_countries]
         import random
-        random.shuffle(countries)
-        target_countries = countries[:3] # Increased from 2 to 3
-        logger.info(f"GNews: Rotating targets for this cycle (using pool of {len(self.api_keys)} keys): {target_countries}")
+        random.shuffle(remaining)
+        
+        # Max 4 countries per run (assuming 2 keys * 100 req/day / 96 runs = ~2 req/run. 
+        # But we rotate keys, so effectively we can do a bit more if we have multiple keys)
+        # If we have 2 keys, we can handle ~4 requests per 15 min cycle safely.
+        slots_left = 4 - len(target_countries)
+        if slots_left > 0:
+            target_countries.extend(remaining[:slots_left])
+            
+        logger.info(f"GNews: Cycle Targets: {target_countries}")
 
         for country in target_countries:
             try:
@@ -82,7 +99,8 @@ class GNewsCollector:
                     # For non-English countries, GNews often works better with localized lang or no lang constraint
                     if not query: # Only override lang for general top-headlines
                         if country == 'jp': params['lang'] = 'ja'
-                        if country == 'cn': params['lang'] = 'zh'
+                        if country == 'cn': params['lang'] = 'zh' # Native Chinese
+                        if country == 'au': params['lang'] = 'en' # Native English
                         if country == 'ru': params['lang'] = 'ru'
                         if country == 'de': params['lang'] = 'de'
                         if country == 'fr': params['lang'] = 'fr'
