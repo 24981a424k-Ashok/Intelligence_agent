@@ -1033,8 +1033,7 @@ header {
 
     /* Global layout */
     .global-info-bar {
-        padding: 0 1rem;
-        height: 35px;
+        display: none !important;
     }
 
     .info-right {
@@ -1046,7 +1045,7 @@ header {
     }
 
     header {
-        top: 35px;
+        top: 0;
         height: 60px;
         padding: 0 1rem;
     }
@@ -1062,7 +1061,7 @@ header {
     }
 
     .main-content {
-        margin-top: 110px;
+        margin-top: 80px;
         padding: 0 1rem 3rem;
     }
 
@@ -1245,15 +1244,18 @@ header {
     }
 
     /* Newspaper shelf */
-    .newspapers-bottom {
+    .paper-shelf {
         padding: 1.5rem;
-        gap: 1.5rem;
-        display: flex !important;
-        overflow-x: auto;
+        gap: 1rem;
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        overflow-x: visible;
+        justify-items: center;
     }
 
     .paper-item {
-        min-width: 100px;
+        min-width: auto;
+        width: 100%;
     }
 
     .paper-logo {
