@@ -39,6 +39,8 @@ async def run_news_cycle():
         
         social_collector = SocialMediaCollector()
         trending_count = social_collector.fetch_trending_india()
+
+
         
         from src.collectors.gnews_collector import GNewsCollector
         gnews_collector = GNewsCollector()
