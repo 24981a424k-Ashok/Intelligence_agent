@@ -1246,7 +1246,20 @@ header {
 
     /* Newspaper shelf */
     .newspapers-bottom {
-        display: none !important;
+        padding: 1.5rem;
+        gap: 1.5rem;
+        display: flex !important;
+        overflow-x: auto;
+    }
+
+    .paper-item {
+        min-width: 100px;
+    }
+
+    .paper-logo {
+        width: 70px;
+        height: 70px;
+        font-size: 1.1rem;
     }
 }
 
