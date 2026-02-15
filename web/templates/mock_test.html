@@ -321,6 +321,69 @@
             color: #94a3b8;
             font-style: italic;
         }
+
+        @media (max-width: 768px) {
+            .exam-layout {
+                flex-direction: column;
+            }
+
+            .exam-sidebar {
+                width: 100%;
+                height: auto;
+                flex-direction: row;
+                justify-content: space-between;
+                align-items: center;
+                padding: 1rem;
+                display: none;
+                /* Hide sidebar on mobile, use top nav or simpler layout */
+            }
+
+            /* Simpler Mobile Header */
+            .mobile-exam-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding: 1rem;
+                background: rgba(15, 23, 42, 0.9);
+                border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            }
+
+            .exam-main {
+                padding: 1rem;
+            }
+
+            .hero-title {
+                font-size: 2rem;
+            }
+
+            .stat-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+
+            .glass-card {
+                padding: 1.5rem;
+            }
+
+            .exam-header-bar {
+                flex-direction: column;
+                gap: 1rem;
+                align-items: flex-start;
+            }
+
+            .timer-badge {
+                width: 100%;
+                justify-content: center;
+            }
+
+            .nav-buttons {
+                flex-direction: column;
+                gap: 1rem;
+            }
+
+            .nav-btn {
+                width: 100%;
+            }
+        }
     </style>
 </head>
 
@@ -356,6 +419,25 @@
                 <div style="font-size:0.9rem; color:#fff;" id="user-name">User</div>
             </div>
         </aside>
+
+        <!-- Mobile Header (Visible only on mobile) -->
+        <div class="mobile-exam-header" style="display:none;">
+            <div class="exam-logo" style="margin:0; font-size:1.2rem;">UNI <span>AP</span></div>
+            <a href="/dashboard" style="color:#cbd5e1; text-decoration:none; font-size:0.9rem;">Exit</a>
+        </div>
+
+        <script>
+            function checkMobileHeader() {
+                const header = document.querySelector('.mobile-exam-header');
+                if (window.innerWidth <= 768) {
+                    header.style.display = 'flex';
+                } else {
+                    header.style.display = 'none';
+                }
+            }
+            window.addEventListener('load', checkMobileHeader);
+            window.addEventListener('resize', checkMobileHeader);
+        </script>
 
         <!-- Main Content -->
         <main class="exam-main">
