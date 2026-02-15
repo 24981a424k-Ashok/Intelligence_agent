@@ -1245,19 +1245,8 @@ header {
     }
 
     /* Newspaper shelf */
-    .paper-shelf {
-        padding: 1.5rem;
-        gap: 1.5rem;
-    }
-
-    .paper-item {
-        min-width: 100px;
-    }
-
-    .paper-logo {
-        width: 70px;
-        height: 70px;
-        font-size: 1.1rem;
+    .newspapers-bottom {
+        display: none !important;
     }
 }
 
