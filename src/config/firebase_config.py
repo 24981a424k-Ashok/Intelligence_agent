@@ -30,18 +30,27 @@ def initialize_firebase():
                 except Exception as ex:
                     logger.error(f"Failed to load Firebase credentials from JSON string: {ex}")
 
-            # 2. Try file path
+            # 2. Try file path from env
             service_account_path = os.getenv("FIREBASE_SERVICE_ACCOUNT_PATH")
             if service_account_path and os.path.exists(service_account_path):
                 cred = credentials.Certificate(service_account_path)
                 firebase_admin.initialize_app(cred)
                 logger.info("Firebase Admin SDK initialized with service account file.")
                 return
+
+            # 3. Fallback to local 'service-account.json' file
+            default_path = "service-account.json"
+            if os.path.exists(default_path):
+                cred = credentials.Certificate(default_path)
+                firebase_admin.initialize_app(cred)
+                logger.info("Firebase Admin SDK initialized with local 'service-account.json'.")
+                return
+
             # Ensure GOOGLE_CLOUD_PROJECT is set for Firebase Admin
             if not os.getenv("GOOGLE_CLOUD_PROJECT") and os.getenv("FIREBASE_PROJECT_ID"):
                 os.environ["GOOGLE_CLOUD_PROJECT"] = os.getenv("FIREBASE_PROJECT_ID")
 
-            # 3. Fallback to default
+            # 4. Fallback to default credentials
             firebase_admin.initialize_app()
             logger.info(f"Firebase Admin SDK initialized with default credentials for project: {os.getenv('GOOGLE_CLOUD_PROJECT')}")
     except Exception as e:

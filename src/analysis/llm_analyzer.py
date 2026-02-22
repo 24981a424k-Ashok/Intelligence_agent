@@ -112,11 +112,12 @@ Generate JSON with:
 3. headline: String (factual, neutral)
 4. key_facts: List of 2–4 bullet points
 5. why_it_matters: String (Impact on team, player, tournament, or fans)
-6. next_update: String (label uncertainty clearly)
-7. urgency_tag: String (from rules above)
-10. category: "Sports" (if sports)
-11. impact_score: 1-10
-12. primary_geography: "India" | "Japan" | "China" | "USA" | "UK" | "Global"
+6. who_is_affected: String (Specific athletes, teams, or fans impacted)
+7. next_update: String (label uncertainty clearly)
+8. urgency_tag: String (from rules above)
+9. category: "Sports" (if sports)
+10. impact_score: 1-10
+11. primary_geography: "India" | "Japan" | "China" | "USA" | "UK" | "Global"
 
 IMPORTANT: Output ONLY valid JSON.
 """
@@ -139,7 +140,7 @@ IMPORTANT: Output ONLY valid JSON.
             if result.get("classification_status") == "Sports":
                 result["summary_bullets"] = result.get("key_facts", [])
                 result["why_it_matters"] = f"Sports Type: {result.get('sports_type')}\n\n{result.get('why_it_matters')}"
-                result["who_is_affected"] = f"Next Update: {result.get('next_update', 'TBD')}"
+                result["who_is_affected"] = result.get("who_is_affected", f"Next Update: {result.get('next_update', 'TBD')}")
                 result["impact_tags"] = [result.get("urgency_tag", "Regular Update")]
                 result["category"] = "Sports"
                 result["country"] = result.get("primary_geography", "Global")
@@ -162,14 +163,14 @@ IMPORTANT: Output ONLY valid JSON.
         TASK:
         Generate a JSON output with:
         PART 1: INDUSTRY INTELLIGENCE REPORT
-        - regulatory_changes, market_impact_short, market_impact_long, competitors, strategic_signals, recommendations, confidence_level.
+        - regulatory_changes, market_impact_short, market_impact_long, competitors, strategic_signals, recommendations, confidence_level, who_is_affected_details.
         
         PART 2: DASHBOARD METADATA
         - category, impact_score (1-10), sentiment, summary_bullets (5-7 points), bias_rating, primary_geography (e.g. India, USA, China, Japan, Global).
         
         LANGUAGE REQUIREMENT:
         - Detect the detected language of the article content (e.g. Japanese, Chinese, Arabic).
-        - IMPORTANT: Generate 'headline', 'summary_bullets', 'why_it_matters', and 'impact' fields IN THE SAME LANGUAGE AS THE ARTICLE.
+        - IMPORTANT: Generate 'headline', 'summary_bullets', 'why_it_matters', 'who_is_affected_details', and 'impact' fields IN THE SAME LANGUAGE AS THE ARTICLE.
         - Do NOT translate non-English news into English. Keep it authentic.
         
         Output ONLY valid JSON.
@@ -197,7 +198,7 @@ IMPORTANT: Output ONLY valid JSON.
             
             # Ensure mandatory fields for UI compatibility
             result["why_it_matters"] = f"Strategy: {result.get('strategic_signals', '')}\n\nPolicy: {result.get('regulatory_changes', '')}"
-            result["who_is_affected"] = result.get('competitors', 'General Public')
+            result["who_is_affected"] = result.get('who_is_affected_details', result.get('competitors', 'General Public'))
             result["short_term_impact"] = result.get('market_impact_short', 'Immediate awareness.')
             result["long_term_impact"] = result.get('market_impact_long', 'Future policy shifts.')
             result["country"] = result.get('primary_geography', 'Global')

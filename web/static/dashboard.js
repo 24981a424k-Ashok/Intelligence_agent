@@ -173,6 +173,7 @@ function getCategoryFallback(category, seed = '', index = 0) {
             'https://images.unsplash.com/photo-1529107386315-e1a2ed48a620?auto=format&fit=crop&w=800&q=80'
         ]
     };
+    limit = 20;
 
     const normalize = (category || '').toLowerCase();
     let targetList = images['breaking']; // Default
@@ -232,7 +233,7 @@ async function toggleSeeMore(btn, selector) {
     const hiddenItems = container.querySelectorAll('.hidden-item');
     if (hiddenItems.length > 0) {
         // Reveal a batch of 6 or all if fewer
-        const batch = Array.from(hiddenItems).slice(0, 6);
+        const batch = Array.from(hiddenItems).slice(0, 20);
         batch.forEach(item => {
             item.classList.remove('hidden-item');
             item.style.display = 'flex';

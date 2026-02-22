@@ -31,7 +31,11 @@ class HistoryRequest(BaseModel):
 async def save_article(payload: SaveRequest, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.firebase_uid == payload.firebase_uid).first()
     if not user:
-        raise HTTPException(status_code=404, detail=f"Retention Error: User {payload.firebase_uid} not found in DB")
+        logger.warning(f"User {payload.firebase_uid} not found during save. Creating lazy entry.")
+        user = User(firebase_uid=payload.firebase_uid)
+        db.add(user)
+        db.commit()
+        db.refresh(user)
     
     # Check if already saved
     existing = db.query(SavedArticle).filter(
@@ -55,7 +59,13 @@ async def save_article(payload: SaveRequest, db: Session = Depends(get_db)):
 async def track_history(payload: HistoryRequest, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.firebase_uid == payload.firebase_uid).first()
     if not user:
-        raise HTTPException(status_code=404, detail=f"Retention Error: User {payload.firebase_uid} not found in DB")
+        # Lazy creation of user if they exist in Firebase but not in our DB
+        # This can happen if the /api/login call was skipped or failed
+        logger.warning(f"User {payload.firebase_uid} not found during history track. Creating lazy entry.")
+        user = User(firebase_uid=payload.firebase_uid)
+        db.add(user)
+        db.commit()
+        db.refresh(user)
     
     # Track the reading event
     history_entry = ReadHistory(

@@ -529,7 +529,7 @@ async def get_more_stories(category: str, offset: int, country: str = None, db: 
 
     # Pagination logic
     start = offset
-    limit = 12
+    limit = 20
     end = offset + limit
     
     # Check if there are more stories after this batch
