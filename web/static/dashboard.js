@@ -663,6 +663,32 @@ function initializeWeather() {
     weatherTemp.innerText = `${base + vari}°F`;
 }
 
+// SIDEBAR DISMISSAL
+function dismissSidebar(id) {
+    const sidebar = document.getElementById(id);
+    if (sidebar) {
+        sidebar.style.transform = 'translateY(-50%) scale(0.9)';
+        sidebar.style.opacity = '0';
+        setTimeout(() => {
+            sidebar.style.display = 'none';
+        }, 300);
+    }
+}
+window.dismissSidebar = dismissSidebar;
+
+// MOBILE AD DISMISSAL
+function dismissMobileAd() {
+    const overlay = document.getElementById('mobile-ad-overlay');
+    if (overlay) {
+        overlay.style.opacity = '0';
+        overlay.style.pointerEvents = 'none';
+        setTimeout(() => {
+            overlay.style.display = 'none';
+        }, 300);
+    }
+}
+window.dismissMobileAd = dismissMobileAd;
+
 // Initialize on Load
 document.addEventListener('DOMContentLoaded', () => {
     initBreakingLayout();

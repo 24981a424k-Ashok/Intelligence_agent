@@ -7,9 +7,11 @@ from src.database.models import SessionLocal, DailyDigest, User, VerifiedNews, S
 from src.config import settings
 from src.config.firebase_config import verify_token
 from src.analysis.chat_engine import NewsChatEngine
+from src.collectors.universe_collector import UniverseCollector
 from pydantic import BaseModel
 
 chat_engine = NewsChatEngine()
+universe_collector = UniverseCollector()
 
 router = APIRouter()
 templates = Jinja2Templates(directory="web/templates")
@@ -304,6 +306,7 @@ async def dashboard(request: Request, category: str = None, country: str = None,
         "trending_title": locals().get("trending_title", "Trending Feed"),
         "selected_country_name": selected_country_name
     }
+    
     
     # Filter Global View (Home) for English only
     if digest_data and not country:
@@ -670,3 +673,28 @@ async def save_note(payload: NoteRequest):
     # Log it for now as there is no DB table for notes yet
     logger.info(f"User Note: {payload.text} from {payload.url}")
     return {"status": "success", "message": "Note recorded"}
+
+@router.get("/universe")
+async def universe_page(request: Request):
+    firebase_config = {
+        "apiKey": settings.FIREBASE_API_KEY,
+        "authDomain": settings.FIREBASE_AUTH_DOMAIN,
+        "projectId": settings.FIREBASE_PROJECT_ID,
+        "storageBucket": settings.FIREBASE_STORAGE_BUCKET,
+        "messagingSenderId": settings.FIREBASE_MESSAGING_SENDER_ID,
+        "appId": settings.FIREBASE_APP_ID
+    }
+    return templates.TemplateResponse("universe.html", {"request": request, "firebase_config": firebase_config})
+
+class UniverseRequest(BaseModel):
+    country: str
+
+@router.post("/api/universe/news")
+async def get_universe_news(payload: UniverseRequest):
+    try:
+        # Now returns a dictionary with top_stories, breaking_news, videos, newspaper_summary
+        news_data = await universe_collector.fetch_country_news(payload.country)
+        return {"status": "success", "news": news_data}
+    except Exception as e:
+        logger.error(f"Universe News Fetch Failed: {e}")
+        return {"status": "error", "message": str(e)}

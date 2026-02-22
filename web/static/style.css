@@ -73,7 +73,10 @@ body {
     font-family: var(--font-main);
     margin: 0;
     padding: 0;
-    line-height: 1.6;
+    line-height: 1.5;
+    /* Slightly decreased from 1.6 */
+    font-size: 0.95rem;
+    /* Base font size reduction */
     overflow-x: hidden;
 }
 
@@ -1299,7 +1302,15 @@ header {
     visibility: hidden;
     transition: all 0.3s ease;
     backdrop-filter: blur(10px);
-    display: block;
+    display: flex;
+    /* Changed from block for centering */
+    align-items: center;
+    justify-content: center;
+}
+
+.mobile-menu-overlay.active {
+    opacity: 1;
+    visibility: visible;
 }
 
 
@@ -1397,14 +1408,52 @@ header {
     margin-bottom: 2rem;
     gap: 2rem;
     box-shadow: var(--shadow-md);
+    transition: all 0.3s ease;
+}
+
+@media (max-width: 600px) {
+    .market-climate-bar {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.8rem;
+        padding: 1rem;
+    }
+
+    .ticker-label-container {
+        width: 100%;
+        display: flex;
+        justify-content: flex-start;
+        margin-bottom: 0.2rem;
+    }
+
+    .ticker-title {
+        font-size: 0.65rem;
+        padding: 2px 8px;
+    }
+
+    .ticker-wrap {
+        width: 100%;
+        padding: 0.4rem 0;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .weather-wrap {
+        width: 100%;
+        padding-left: 0;
+        border-left: none;
+        padding-top: 0.4rem;
+    }
 }
 
 .ticker-wrap {
     flex-grow: 1;
     display: flex;
     align-items: center;
-    gap: 1.5rem;
     overflow: hidden;
+    position: relative;
+    /* Masking gradient for smooth edges */
+    -webkit-mask-image: linear-gradient(to right, transparent, black 10%, black 90%, transparent);
+    mask-image: linear-gradient(to right, transparent, black 10%, black 90%, transparent);
 }
 
 .ticker-title {
@@ -1512,4 +1561,203 @@ header {
 .intel-card:hover {
     border-color: var(--accent-blue) !important;
     box-shadow: 0 0 20px rgba(66, 133, 244, 0.2) !important;
+}
+
+/* =========================================
+   ========================================= */
+.fixed-sidebar {
+    position: fixed;
+    top: 55%;
+    /* Moved down from 48% */
+    transform: translateY(-50%);
+    width: 120px;
+    height: 500px;
+    background: var(--bg-glass);
+    backdrop-filter: blur(15px);
+    border: 1px solid var(--border-highlight);
+    border-radius: var(--radius-md);
+    z-index: 1000;
+    padding: 0.8rem 0.2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    /* Added gap to control internal spacing */
+    box-shadow: var(--shadow-lg);
+    transition: transform 0.3s ease, opacity 0.3s ease;
+}
+
+.fixed-sidebar.left {
+    left: 20px;
+}
+
+.fixed-sidebar.right {
+    right: 20px;
+}
+
+.sidebar-close {
+    position: absolute;
+    top: -10px;
+    right: -10px;
+    width: 24px;
+    height: 24px;
+    background: var(--accent-red);
+    color: white;
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 1.2rem;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+    transition: transform 0.2s;
+}
+
+.sidebar-close:hover {
+    transform: scale(1.1);
+}
+
+.sidebar-content {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.sidebar-label {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    color: var(--accent-gold);
+    font-weight: 800;
+    letter-spacing: 0.05em;
+}
+
+.sidebar-content p {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    margin: 0;
+    line-height: 1.4;
+}
+
+@media (max-width: 1300px) {
+    .fixed-sidebar {
+        display: none;
+    }
+}
+
+/* =========================================
+   MOBILE AD OVERLAY
+   ========================================= */
+.mobile-ad-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.85);
+    z-index: 9999;
+    display: none;
+    /* Hidden by default, shown via media query or JS */
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    backdrop-filter: blur(5px);
+}
+
+.mobile-ad-content {
+    position: relative;
+    width: 100%;
+    max-width: 400px;
+    background: white;
+    border-radius: 4px;
+    overflow: hidden;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+    animation: adPopUp 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.mobile-ad-close {
+    position: absolute;
+    top: 0;
+    right: 0;
+    background: black;
+    color: white;
+    border: none;
+    padding: 5px 10px;
+    font-family: "Inter", sans-serif;
+    font-size: 0.7rem;
+    font-weight: 800;
+    cursor: pointer;
+    z-index: 10;
+    letter-spacing: 0.05em;
+}
+
+.mobile-ad-banner {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+}
+
+.mobile-ad-banner img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.mobile-ad-banner-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(to right, rgba(0, 0, 50, 0.8) 40%, transparent);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 20px;
+    color: white;
+}
+
+.mobile-ad-banner-overlay h3 {
+    font-size: 1.2rem;
+    font-weight: 800;
+    margin: 0;
+    line-height: 1.1;
+    color: white;
+}
+
+.mobile-ad-banner-overlay p {
+    font-size: 0.8rem;
+    margin: 5px 0 15px 0;
+    opacity: 0.9;
+}
+
+.mobile-ad-btn {
+    display: inline-block;
+    padding: 8px 15px;
+    background: white;
+    color: #0033ff;
+    text-decoration: none;
+    font-size: 0.75rem;
+    font-weight: 700;
+    border-radius: 2px;
+    width: fit-content;
+}
+
+@keyframes adPopUp {
+    from {
+        transform: scale(0.8);
+        opacity: 0;
+    }
+
+    to {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+@media (max-width: 768px) {
+    .mobile-ad-overlay {
+        display: flex;
+    }
 }
