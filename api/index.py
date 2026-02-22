@@ -16,9 +16,11 @@ app = FastAPI(title="AI News Intelligence Agent")
 # Import routes
 try:
     from src.delivery.web_dashboard import router as dashboard_router
+    from src.delivery.user_retention import router as retention_router
+    app.include_router(retention_router, prefix="/api/retention")
     app.include_router(dashboard_router)
 except Exception as e:
-    logger.error(f"Error importing dashboard router: {e}")
+    logger.error(f"Error importing routers: {e}")
 
 # Health check endpoint
 @app.get("/health")

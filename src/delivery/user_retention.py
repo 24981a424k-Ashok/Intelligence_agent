@@ -5,7 +5,7 @@ from pydantic import BaseModel
 from typing import List, Optional
 from datetime import datetime
 
-router = APIRouter(tags=["Retention"])
+router = APIRouter(tags=["Retention"], prefix="/api/retention")
 
 def get_db():
     db = SessionLocal()

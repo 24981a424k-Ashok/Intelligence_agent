@@ -103,7 +103,7 @@ app = FastAPI(title="AI News Intelligence Agent", lifespan=lifespan)
 app.mount("/static", StaticFiles(directory="web/static"), name="static")
 
 # Include Routers
-app.include_router(retention_router, prefix="/api/retention")
+app.include_router(retention_router)
 app.include_router(dashboard_router)
 
 @app.get("/favicon.ico", include_in_schema=False)
