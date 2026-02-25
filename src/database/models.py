@@ -167,6 +167,26 @@ class BreakingNews(Base):
     last_updated = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     verified_news = relationship("VerifiedNews")
+
+class Advertisement(Base):
+    __tablename__ = "advertisements"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    image_url = Column(String, nullable=False)
+    caption = Column(String, nullable=True)
+    target_node = Column(String, default="Global")
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+class Newspaper(Base):
+    __tablename__ = "newspapers"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False)
+    url = Column(String, nullable=False)
+    logo_text = Column(String, nullable=True) # e.g. "NYT"
+    logo_color = Column(String, nullable=True) # e.g. "#000000"
+    country = Column(String, default="Global")
+    created_at = Column(DateTime, default=datetime.utcnow)
     
 engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

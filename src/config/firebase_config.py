@@ -59,7 +59,8 @@ def initialize_firebase():
 def verify_token(id_token: str):
     """Verify Firebase ID Token from frontend."""
     try:
-        decoded_token = auth.verify_id_token(id_token)
+        # Add 10 seconds of clock skew leeway to handle "Token used too early" errors
+        decoded_token = auth.verify_id_token(id_token, clock_skew_seconds=10)
         return decoded_token
     except Exception as e:
         logger.error(f"Token verification failed: {e}")

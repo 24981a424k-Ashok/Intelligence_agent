@@ -165,7 +165,8 @@ class VerificationEngine:
                 content=article.content or article.description or "",
                 published_at=article.published_at,
                 credibility_score=score,
-                category="General" 
+                category="General",
+                country=article.country
             )
             session.add(verified_news)
             

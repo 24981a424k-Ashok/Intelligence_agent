@@ -5,6 +5,7 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2' # Also suppress general TF info/warning
 
 import sys
 import asyncio
+import logging
 
 # Ensure src is in path for imports
 if os.getcwd() not in sys.path:
@@ -18,6 +19,12 @@ from fastapi.templating import Jinja2Templates
 from fastapi.responses import FileResponse
 from loguru import logger
 import sys
+
+# Silence noisy external libraries
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("openai").setLevel(logging.WARNING)
+logging.getLogger("httpcore").setLevel(logging.WARNING)
+logging.getLogger("urllib3").setLevel(logging.CRITICAL)
 
 # Ensure stdout/stderr are unbuffered for Hugging Face logs
 # sys.stdout.reconfigure(line_buffering=True) # For Python 3.7+

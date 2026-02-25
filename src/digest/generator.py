@@ -14,8 +14,32 @@ class DigestGenerator:
 
     async def create_daily_digest(self, session: Session) -> Dict[str, Any]:
         """Generate the comprehensive daily intelligence digest."""
-        # Refresh and get verified news
-        recent_news = session.query(VerifiedNews).order_by(VerifiedNews.created_at.desc()).limit(600).all()
+        # 1. Fetch Top 600 Global verified news
+        global_news = session.query(VerifiedNews).order_by(VerifiedNews.created_at.desc()).limit(600).all()
+        
+        # 2. Regional Balanced Fetch: Ensure priority countries have data
+        priority_countries = ['in', 'us', 'cn', 'jp', 'gb', 'sg', 'ae', 'ru', 'de', 'fr', 'au']
+        regional_news = []
+        for code in priority_countries:
+            # Fetch top 20 for each country
+            country_specific = session.query(VerifiedNews).filter(VerifiedNews.country == code) \
+                .order_by(VerifiedNews.created_at.desc()).limit(20).all()
+            regional_news.extend(country_specific)
+        
+        # Merge and deduplicate
+        seen_ids = set()
+        recent_news = []
+        for n in global_news + regional_news:
+            if n.id not in seen_ids:
+                recent_news.append(n)
+                seen_ids.add(n.id)
+        
+        logger.info(f"Digest: Fetched {len(recent_news)} articles (Global: {len(global_news)}, Regional: {len(regional_news)})")
+        with open("digest_debug.log", "a") as f:
+            f.write(f"\n--- Digest Refresh at {datetime.utcnow()} ---\n")
+            f.write(f"recent_news count: {len(recent_news)}\n")
+            countries_found = [n.country for n in recent_news if n.country]
+            f.write(f"Countries in recent_news: {set(countries_found)}\n")
         
         # Generate Breaking News (NEW)
         breaking_news_items = []
@@ -171,16 +195,23 @@ class DigestGenerator:
         countries = {"India": [], "USA": [], "China": [], "Japan": [], "UK": [], "Singapore": [], "UAE": [], "Global": []}
 
         # 2.A Populate Countries from ALL recent news (not just top 400)
+        country_map = {
+            "us": "USA", "cn": "China", "jp": "Japan", "in": "India", "gb": "UK", 
+            "sg": "Singapore", "ae": "UAE", "ru": "Russia", "de": "Germany", 
+            "fr": "France", "au": "Australia"
+        }
+        
         for n in recent_news:
-             country_code = n.country
-             if not country_code:
-                 continue
-             
-             country_map = {"us": "USA", "cn": "China", "jp": "Japan", "in": "India", "gb": "UK", \
-                           "sg": "Singapore", "ae": "UAE", "ru": "Russia", "de": "Germany", "fr": "France", "au": "Australia"}
-             name = country_map.get(country_code.lower(), country_code.capitalize())
-             
-             item_data = {
+            country_code = str(n.country).lower().strip() if n.country else None
+            if not country_code:
+                continue
+            
+            name = country_map.get(country_code, country_code.capitalize())
+            # Debug log
+            if country_code in ['cn', 'ae', 'china', 'uae']:
+                logger.info(f"Digest Match Found: {n.title[:30]}... -> Code: {country_code} -> Name: {name}")
+            
+            item_data = {
                 "id": n.id,
                 "title": n.title,
                 "url": n.raw_news.url if n.raw_news else "#",
@@ -192,13 +223,15 @@ class DigestGenerator:
                 "image_url": n.raw_news.url_to_image if n.raw_news else None,
                 "bullets": n.summary_bullets or [n.title],
                 "country": name
-             }
-             
-             if name in countries:
-                 countries[name].append(item_data)
-             else:
-                 if name not in countries: countries[name] = []
-                 countries[name].append(item_data)
+            }
+            
+            if name not in countries:
+                countries[name] = []
+            countries[name].append(item_data)
+            
+            # CRITICAL DEBUG
+            if name in ['China', 'UAE']:
+                logger.info(f"APPEND SUCCESS: {name} now has {len(countries[name])} stories. Added: {item_data['title'][:30]}")
 
         # 2.B Populate Categories (Keep 400 limit for headlines)
         for n in sorted_news[:400]:
@@ -376,6 +409,12 @@ class DigestGenerator:
                 brief_items.append({"id": f"raw-{r.id}", "title": r.title + " (Raw Feed)", "country": r.country})
         
         digest_data["brief"] = brief_items
+
+        # FINAL DEBUG
+        f_countries = digest_data.get("countries", {})
+        logger.info(f"FINAL DIGEST STATE: China={len(f_countries.get('China', []))}, UAE={len(f_countries.get('UAE', []))}")
+        with open("digest_debug.log", "a") as f:
+            f.write(f"FINAL DEBUG: China={len(f_countries.get('China', []))}, UAE={len(f_countries.get('UAE', []))}\n")
 
         # Save and Mark as Published for Dashboard visibility
         digest_entry = DailyDigest(

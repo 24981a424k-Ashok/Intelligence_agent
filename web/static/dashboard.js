@@ -489,14 +489,144 @@ function updateBreakingNewsSection(breakingNews) {
 }
 
 // ===== UTILITY FUNCTIONS =====
-function handleCardClick(card) {
-    const url = card.dataset.url;
-    const id = card.dataset.id;
+let currentModalArticleId = null;
 
-    if (url && url !== '#') {
-        // Async track history
-        trackHistory(id);
-        window.open(url, '_blank');
+async function handleCardClick(card) {
+    const id = card.dataset.id;
+    if (!id) return;
+
+    // Track history
+    trackHistory(id);
+
+    // Open Modal
+    openArticleModal(id);
+}
+
+async function openArticleModal(id) {
+    const modal = document.getElementById('article-modal');
+    if (!modal) return;
+
+    currentModalArticleId = id;
+
+    // Show modal loading state
+    modal.classList.add('active');
+    document.body.style.overflow = 'hidden';
+
+    try {
+        const res = await fetch(`/api/article/${id}`);
+        if (!res.ok) throw new Error("Artifact not found");
+
+        const data = await res.json();
+
+        // Populate Modal
+        document.getElementById('modal-title').innerText = data.title || "Intelligence Artifact";
+        const heroImg = document.getElementById('modal-image');
+        if (heroImg) heroImg.style.backgroundImage = `url('${data.image_url}')`;
+
+        const sourceBadge = document.getElementById('modal-source');
+        if (sourceBadge) sourceBadge.innerText = `VERIFIED: ${data.source_name || 'Global Source'}`;
+
+        const timeText = document.getElementById('modal-time');
+        if (timeText) timeText.innerText = data.time_ago || 'Recently';
+
+        const biasBadge = document.getElementById('modal-bias');
+        if (biasBadge) biasBadge.innerText = data.bias_rating || 'Neutral';
+
+        const affectedText = document.getElementById('modal-affected');
+        if (affectedText) affectedText.innerText = data.who_is_affected || 'Analyzing global implications...';
+
+        const whyText = document.getElementById('modal-why');
+        if (whyText) whyText.innerText = data.why_it_matters || 'Evaluating strategic significance.';
+
+        const sourceLink = document.getElementById('modal-source-link');
+        if (sourceLink) sourceLink.href = data.url || '#';
+
+        // Bullets
+        const bulletList = document.getElementById('modal-bullets');
+        if (bulletList) {
+            bulletList.innerHTML = '';
+            const bullets = data.summary_bullets;
+            if (bullets && Array.isArray(bullets)) {
+                bullets.forEach(bullet => {
+                    const li = document.createElement('li');
+                    li.innerText = bullet;
+                    bulletList.appendChild(li);
+                });
+            } else if (typeof bullets === 'string' && bullets.startsWith('[')) {
+                // Handle stringified JSON if needed
+                try {
+                    JSON.parse(bullets).forEach(bullet => {
+                        const li = document.createElement('li');
+                        li.innerText = bullet;
+                        bulletList.appendChild(li);
+                    });
+                } catch (e) { }
+            }
+        }
+
+        // Tags
+        const tagContainer = document.getElementById('modal-tags');
+        if (tagContainer) {
+            tagContainer.innerHTML = '';
+            const tags = data.impact_tags;
+            if (tags && Array.isArray(tags)) {
+                tags.forEach(tag => {
+                    const span = document.createElement('span');
+                    span.className = 'modal-tag-pill';
+                    span.innerText = tag;
+                    tagContainer.appendChild(span);
+                });
+            }
+        }
+
+    } catch (e) {
+        console.error("Failed to load article details", e);
+        // Fallback: If we fail to fetch, just open the URL if we can find it
+        const card = document.querySelector(`.intel-card[data-id="${id}"]`);
+        if (card && card.dataset.url && card.dataset.url !== '#') {
+            window.open(card.dataset.url, '_blank');
+        } else {
+            alert("This intelligence artifact is currently being re-indexed. Please try again in a few moments.");
+        }
+        closeArticleModal();
+    }
+}
+
+function closeArticleModal() {
+    const modal = document.getElementById('article-modal');
+    if (modal) {
+        modal.classList.remove('active');
+        document.body.style.overflow = '';
+    }
+    currentModalArticleId = null;
+}
+
+async function saveArticleModal() {
+    if (!currentModalArticleId) return;
+
+    const user = firebase.auth().currentUser;
+    if (!user) {
+        alert("Identification required. Please login to save intelligence.");
+        return;
+    }
+
+    try {
+        const res = await fetch('/api/retention/save', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                firebase_uid: user.uid,
+                news_id: parseInt(currentModalArticleId)
+            })
+        });
+        const data = await res.json();
+        if (data.status === 'success') {
+            alert("Intelligence artifact archived successfully.");
+        } else {
+            alert("Artifact already archived in your terminal.");
+        }
+    } catch (e) {
+        console.error("Archive failure", e);
     }
 }
 
@@ -551,6 +681,8 @@ async function saveArticle(event, newsId) {
 
 // Export to window for inline onclicks
 window.handleCardClick = handleCardClick;
+window.closeArticleModal = closeArticleModal;
+window.saveArticleModal = saveArticleModal;
 window.saveArticle = saveArticle;
 
 // ===== INITIALIZE ON PAGE LOAD =====

@@ -37,7 +37,8 @@ class LLMAnalyzer:
             results = await asyncio.gather(*tasks)
             return results
         except Exception as e:
-            logger.error(f"Batch analysis crash: {e}")
+            if "quota" not in str(e).lower() and "429" not in str(e):
+                logger.error(f"Batch analysis crash: {e}")
             return [self._mock_analysis(a["title"]) for a in articles]
         finally:
             await client.close()
@@ -169,9 +170,10 @@ IMPORTANT: Output ONLY valid JSON.
         - category, impact_score (1-10), sentiment, summary_bullets (5-7 points), bias_rating, primary_geography (e.g. India, USA, China, Japan, Global).
         
         LANGUAGE REQUIREMENT:
-        - Detect the detected language of the article content (e.g. Japanese, Chinese, Arabic).
-        - IMPORTANT: Generate 'headline', 'summary_bullets', 'why_it_matters', 'who_is_affected_details', and 'impact' fields IN THE SAME LANGUAGE AS THE ARTICLE.
-        - Do NOT translate non-English news into English. Keep it authentic.
+        - Detect the language of the article content (e.g. Japanese, Chinese, Arabic).
+        - IMPORTANT: If the article is NOT in English, you MUST provide 'headline', 'summary_bullets', 'why_it_matters', and 'who_is_affected_details' in BOTH the native language AND English.
+        - Format for non-English: "English Title (Native Title)" or "English Bullet Point (Native Bullet)".
+        - This ensures the English dashboard remains functional while preserving authenticity.
         
         Output ONLY valid JSON.
         """

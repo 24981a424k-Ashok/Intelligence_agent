@@ -27,6 +27,14 @@ GNEWS_API_KEY = os.getenv("GNEWS_API_KEY")
 GNEWS_API_KEY_2 = os.getenv("GNEWS_API_KEY_2") # Secondary key for higher quota
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
+# Translation Setting
+TRANSLATION_KEYS = [
+    os.getenv("TRANSLATION_OPENAI_KEY_1"),
+    os.getenv("TRANSLATION_OPENAI_KEY_2"),
+    os.getenv("TRANSLATION_OPENAI_KEY_3")
+]
+TRANSLATION_KEYS = [k for k in TRANSLATION_KEYS if k] # Filter out None values
+
 # Firebase Config
 FIREBASE_API_KEY = os.getenv("FIREBASE_API_KEY")
 FIREBASE_AUTH_DOMAIN = os.getenv("FIREBASE_AUTH_DOMAIN")

@@ -1,4 +1,5 @@
 import os
+import logging
 import copy
 from fastapi import APIRouter, Request, Depends, HTTPException, BackgroundTasks
 from fastapi.templating import Jinja2Templates
@@ -8,10 +9,14 @@ from src.config import settings
 from src.config.firebase_config import verify_token
 from src.analysis.chat_engine import NewsChatEngine
 from src.collectors.universe_collector import UniverseCollector
+from src.utils.translator import NewsTranslator
 from pydantic import BaseModel
+import requests
 
 chat_engine = NewsChatEngine()
 universe_collector = UniverseCollector()
+translator = NewsTranslator()
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 templates = Jinja2Templates(directory="web/templates")
@@ -126,210 +131,229 @@ async def landing_page(request: Request):
     return templates.TemplateResponse("login.html", {"request": request, "firebase_config": firebase_config})
 
 @router.get("/dashboard")
-async def dashboard(request: Request, category: str = None, country: str = None, db: Session = Depends(get_db)):
-    # Get latest published digest
-    latest_digest = db.query(DailyDigest).filter(DailyDigest.is_published == True).order_by(DailyDigest.date.desc()).first()
-    
-    if not latest_digest:
-        latest_digest = db.query(DailyDigest).order_by(DailyDigest.date.desc()).first()
-
-    # Initialization Diagnostics (For "Why" it's empty)
-    from src.database.models import RawNews, VerifiedNews
-    raw_count = db.query(RawNews).count()
-    verified_count = db.query(VerifiedNews).count()
-    has_keys = bool(settings.NEWS_API_KEY)
-
-    system_status = "Syncing"
-    if not has_keys:
-        system_status = "Configuration Alert: API Keys Missing on Server"
-    elif raw_count == 0:
-        system_status = "Collecting: Scanning Global News Sources..."
-    elif verified_count == 0:
-        system_status = "Analyzing: AI is verifying collected intelligence..."
-    elif not latest_digest:
-        system_status = "Promoting: Finalizing intelligence dashboard..."
-
-    digest_data = copy.deepcopy(latest_digest.content_json) if latest_digest else {
-        "top_stories": [], "breaking_news": [], "trending_news": [], "brief": [],
-        "is_system_initializing": True,
-        "is_empty_regional": True,
-        "system_status_msg": system_status
-    }
-
-    firebase_config = {
-        "apiKey": settings.FIREBASE_API_KEY,
-        "authDomain": settings.FIREBASE_AUTH_DOMAIN,
-        "projectId": settings.FIREBASE_PROJECT_ID,
-        "storageBucket": settings.FIREBASE_STORAGE_BUCKET,
-        "messagingSenderId": settings.FIREBASE_MESSAGING_SENDER_ID,
-        "appId": settings.FIREBASE_APP_ID
-    }
-    
-    # 1. Standardize Country Context
-    selected_country = country
-    selected_category = category
-    selected_country_name = None
-    
-    if digest_data and country:
-        target_name, match_keys = normalize_country(country)
-        selected_country_name = target_name
+async def dashboard(request: Request, category: str = None, country: str = None, lang: str = 'english', db: Session = Depends(get_db)):
+    """Render the main intelligence portal"""
+    try:
+        # 0. Context & Initialization
+        blueprint = None
+        is_special_node = bool(category or country)
         
-        # 2. Filter Top Stories
-        countries_data = digest_data.get("countries", {})
-        country_stories = []
-        for k, v in countries_data.items():
-            if k.lower() in match_keys:
-                country_stories = v
-                break
-        
-        # Fallback for stories tagged specifically but not in node bucket
-        if not country_stories and "top_stories" in digest_data:
-            country_stories = [s for s in digest_data["top_stories"] if s.get("country") in match_keys]
+        # 1. Blueprint Fetching
+        try:
+            if not is_special_node:
+                admin_api_url = os.getenv("ADMIN_API_URL", "http://localhost:5000")
+                resp = requests.get(f"{admin_api_url}/api/blueprints/active", timeout=2)
+                if resp.status_code == 200:
+                    data = resp.json()
+                    blueprint = data.get("structure")
+                    logger.info(f"Blueprint Applied: {len(blueprint) if blueprint else 0} custom layout blocks")
+                else:
+                    blueprint = None
+            else:
+                logger.debug(f"Special node {category or country} active. Standard layout preferred.")
+        except Exception as e:
+            logger.debug(f"Blueprint fetch failed: {e}")
 
-        if country_stories:
-            normalized_stories = []
-            for s in country_stories:
-                normalized_stories.append({
-                    "id": s.get("id"),
-                    "title": s.get("title"),
-                    "url": s.get("url"),
-                    "image_url": s.get("image_url"),
-                    "source_name": s.get("source_name"),
-                    "bullets": s.get("bullets") or [s.get("why", "")],
-                    "affected": s.get("affected", ""),
-                    "why": s.get("why", ""),
-                    "bias": s.get("bias", "Neutral"),
-                    "tags": s.get("tags", []),
-                    "category": s.get("category"),
-                    "country": s.get("country"),
-                    "time_ago": s.get("time_ago", "Just Now")
-                })
-            digest_data["top_stories"] = normalized_stories
-            trending_title = f"Trending in {target_name}"
-        else:
-            # NO regional stories? 
-            # Smart Fallback: Show global but label as such
-            for section in ["top_stories", "breaking_news", "trending_news"]:
-                if section in digest_data:
-                    for s in digest_data[section]:
-                        s["is_global_fallback"] = True
-            
-            digest_data["is_empty_regional"] = True
-            trending_title = f"{target_name} Node: Regional Intel Pending"
-            
-        # 3. Filter ALL OTHER SECTIONS strictly (Breaking/Trending/Brief)
-        # ONLY if we actually found regional stories. If we are in fallback mode, 
-        # we want to keep the global articles visible.
-        if not digest_data.get("is_empty_regional"):
-            for section in ["breaking_news", "brief", "trending_news"]:
-                if section in digest_data:
-                    filtered = [
-                        item for item in digest_data[section]
-                        if (item.get("country") in match_keys) or (item.get("country_name") in match_keys)
-                    ]
-                    digest_data[section] = filtered
-        
-        # 4. Check for Cold Start (No global fallback either)
-        if digest_data.get("is_empty_regional") and not digest_data.get("top_stories"):
-            digest_data["is_system_initializing"] = True
+        # 2. Layout Styles processing
+        if blueprint:
+            for block in blueprint:
+                if "styles" in block:
+                    style_str = "; ".join([f"{k}: {v}" for k, v in block["styles"].items()])
+                    block["style_attr"] = style_str
 
+        # 3. Get latest published digest
+        latest_digest = db.query(DailyDigest).filter(DailyDigest.is_published == True).order_by(DailyDigest.date.desc()).first()
+        if not latest_digest:
+            latest_digest = db.query(DailyDigest).order_by(DailyDigest.date.desc()).first()
 
-    # Filter by Category if requested (if country is null)
-    elif digest_data and category:
-        # Filter top stories
-        all_stories = digest_data.get("top_stories", [])
-        normalized_category = category.lower().replace(" ", "_").strip()
+        # 4. Diagnostics & Status
+        from src.database.models import RawNews, VerifiedNews, Advertisement, Newspaper
+        raw_count = db.query(RawNews).count()
+        verified_count = db.query(VerifiedNews).count()
+        ads = db.query(Advertisement).order_by(Advertisement.created_at.desc()).limit(10).all()
+        papers = db.query(Newspaper).order_by(Newspaper.name.asc()).all()
         
-        category_map = {
-            "business": "Business & Economy",
-            "economy": "Business & Economy",
-            "business_&_economy": "Business & Economy",
-            "science": "Science & Health",
-            "health": "Science & Health",
-            "science_&_health": "Science & Health",
-            "tech": "Technology",
-            "technology": "Technology",
-            "world": "World News",
-            "world_news": "World News",
-            "india": "India / Local News",
-            "local": "India / Local News",
-            "india_/_local_news": "India / Local News",
-            "sports": "Sports",
-            "entertainment": "Entertainment",
-            "ai": "AI & Machine Learning",
-            "ai_&_machine_learning": "AI & Machine Learning"
+        system_status = "Syncing"
+        if not settings.NEWS_API_KEY:
+            system_status = "Configuration Alert: API Keys Missing on Server"
+        elif raw_count == 0:
+            system_status = "Collecting: Scanning Global News Sources..."
+        elif verified_count == 0:
+            system_status = "Analyzing: AI is verifying collected intelligence..."
+        elif not latest_digest:
+            system_status = "Promoting: Finalizing intelligence dashboard..."
+
+        # 5. Core Digest Data
+        digest_data = copy.deepcopy(latest_digest.content_json) if latest_digest else {
+            "top_stories": [], "breaking_news": [], "trending_news": [], "brief": [],
+            "is_system_initializing": True,
+            "is_empty_regional": True,
+            "system_status_msg": system_status
         }
         
-        target_key = category_map.get(normalized_category, category.strip())
-        cat_stories = []
-        categories = digest_data.get("categories", {})
-        
-        if target_key in categories:
-             cat_stories = categories[target_key]
-        elif normalized_category in categories:
-            cat_stories = categories[normalized_category]
-        else:
-            for k, v in categories.items():
-                if k.lower() == normalized_category or k.lower() == target_key.lower():
-                    cat_stories = v
+        # Handle case where content_json is stringified
+        if isinstance(digest_data, str):
+            import json
+            digest_data = json.loads(digest_data)
+
+        # 6. Regional Logic
+        selected_country_name = None
+        country_match_keys = []
+        trending_title = "Intelligence Feed"
+
+        if country and digest_data:
+            from .web_dashboard import normalize_country
+            target_name, match_keys = normalize_country(country)
+            selected_country_name = target_name
+            country_match_keys = match_keys
+            
+            countries_data = digest_data.get("countries", {})
+            country_stories = []
+            
+            # Match strictly
+            for k, v in countries_data.items():
+                if k.lower() in match_keys:
+                    country_stories = v
                     break
-        
-        if cat_stories:
-             normalized_cat_stories = []
-             for s in cat_stories:
-                 normalized_cat_stories.append({
-                     "id": s.get("id"),
-                     "title": s.get("title"),
-                     "url": s.get("url"),
-                     "image_url": s.get("image_url"),
-                     "source_name": s.get("source_name"),
-                     "bullets": s.get("bullets") or [s.get("why", "")],
-                     "affected": s.get("affected", ""),
-                     "why": s.get("why", ""),
-                     "bias": s.get("bias", "Neutral"),
-                     "tags": s.get("tags", []),
-                     "category": category,
-                     "time_ago": s.get("time_ago", "Just Now")
-                 })
-             digest_data["top_stories"] = normalized_cat_stories
-        else:
-             digest_data["top_stories"] = [s for s in all_stories if s.get("category") == category]
+            
+            # Fallback for stories tagged specifically but not in node bucket
+            if not country_stories and "top_stories" in digest_data:
+                country_stories = [s for s in digest_data["top_stories"] if s.get("country") in match_keys]
 
-    context = {
-        "request": request,
-        "digest": digest_data,
-        "date": latest_digest.date.strftime("%Y-%m-%d") if latest_digest else "System Initializing",
-        "firebase_config": firebase_config,
-        "vapid_public_key": settings.VAPID_PUBLIC_KEY,
-        "selected_category": selected_category,
-        "selected_country": selected_country,
-        "trending_title": locals().get("trending_title", "Trending Feed"),
-        "selected_country_name": selected_country_name
-    }
-    
-    
-    # Filter Global View (Home) for English only
-    if digest_data and not country:
-        non_english = ['jp', 'cn', 'ru', 'de', 'fr', 'Japan', 'China', 'Russia', 'Germany', 'France']
-        if "breaking_news" in digest_data:
-             digest_data["breaking_news"] = [b for b in digest_data["breaking_news"] if b.get("country") not in non_english]
-        if "trending_news" in digest_data:
-             digest_data["trending_news"] = [t for t in digest_data["trending_news"] if t.get("country") not in non_english]
-        if "brief" in digest_data:
-             digest_data["brief"] = [f for f in digest_data["brief"] if f.get("country") not in non_english]
-        if "top_stories" in digest_data:
-             digest_data["top_stories"] = [s for s in digest_data["top_stories"] if s.get("country") not in non_english]
+            if country_stories:
+                normalized_stories = []
+                for s in country_stories:
+                    normalized_stories.append({
+                        "id": s.get("id"),
+                        "title": s.get("title"),
+                        "url": s.get("url"),
+                        "image_url": s.get("image_url"),
+                        "source_name": s.get("source_name"),
+                        "bullets": s.get("bullets") or [s.get("why", "")],
+                        "affected": s.get("affected", ""),
+                        "why": s.get("why", ""),
+                        "bias": s.get("bias", "Neutral"),
+                        "tags": s.get("tags", []),
+                        "category": s.get("category"),
+                        "country": s.get("country"),
+                        "time_ago": s.get("time_ago", "Just Now")
+                    })
+                digest_data["top_stories"] = normalized_stories
+                trending_title = f"Trending in {target_name}"
+            else:
+                digest_data["is_empty_regional"] = True
+                # Keep global as fallback
+                for section in ["top_stories", "breaking_news", "trending_news"]:
+                    if section in digest_data:
+                        for s in digest_data[section]:
+                            s["is_global_fallback"] = True
+                trending_title = f"{target_name} Node: Regional Intel Pending"
 
-    # Inject fallback images for ALL sections for consistency
-    if digest_data:
-        for section in ["top_stories", "breaking_news", "trending_news"]:
+            # Filter other sections strictly if regional exists
+            if not digest_data.get("is_empty_regional"):
+                for section in ["breaking_news", "brief", "trending_news"]:
+                    if section in digest_data:
+                        digest_data[section] = [
+                            item for item in digest_data[section]
+                            if (item.get("country") in match_keys) or (item.get("country_name") in match_keys)
+                        ]
+            
+            # India Translation
+            if selected_country_name == "India" and lang and lang.lower() != 'english':
+                sections_to_translate = ["top_stories", "breaking_news", "trending_news", "brief"]
+                for section in sections_to_translate:
+                    if section in digest_data:
+                        digest_data[section] = translator.translate_stories(digest_data[section], lang)
+                trending_title = translator.translate_text(trending_title, lang)
+
+        # 7. Category Logic
+        elif category and digest_data:
+            normalized_cat = category.lower().replace(" ", "_").strip()
+            category_map = {
+                "business": "Business & Economy", "economy": "Business & Economy",
+                "tech": "Technology", "technology": "Technology",
+                "science": "Science & Health", "health": "Science & Health",
+                "world": "World News", "india": "India / Local News"
+            }
+            target_key = category_map.get(normalized_cat, category.strip())
+            
+            categories = digest_data.get("categories", {})
+            cat_stories = categories.get(target_key) or categories.get(normalized_cat)
+            
+            if not cat_stories:
+                for k, v in categories.items():
+                    if k.lower() == normalized_cat or k.lower() == target_key.lower():
+                        cat_stories = v
+                        break
+            
+            if cat_stories:
+                digest_data["top_stories"] = cat_stories
+            else:
+                # Direct match fallback
+                all_stories = digest_data.get("top_stories", [])
+                digest_data["top_stories"] = [s for s in all_stories if s.get("category") == category]
+
+        # 8. Global Home View filtering
+        if digest_data and not country:
+            non_english = [
+            'jp', 'cn', 'ru', 'de', 'fr', 'ae', 'sg', 
+            'Japan', 'China', 'Russia', 'Germany', 'France', 'UAE', 'Singapore'
+        ]
+        for section in ["breaking_news", "trending_news", "brief", "top_stories"]:
             if section in digest_data:
-                for idx, item in enumerate(digest_data[section]):
-                    if not item.get("image_url"):
-                        seed = f"{item.get('headline', '')}{item.get('title', '')}{idx}"
-                        item["image_url"] = get_fallback_image(seed)
+                digest_data[section] = [b for b in digest_data[section] if b.get("country") not in non_english]
 
-    return templates.TemplateResponse("dashboard.html", context)
+        # 9. Fallback images
+        if digest_data:
+            for section in ["top_stories", "breaking_news", "trending_news"]:
+                if section in digest_data:
+                    for idx, item in enumerate(digest_data[section]):
+                        if not item.get("image_url"):
+                            seed = f"{item.get('title', '')}{idx}"
+                            item["image_url"] = get_fallback_image(seed)
+
+        firebase_config = {
+            "apiKey": settings.FIREBASE_API_KEY,
+            "authDomain": settings.FIREBASE_AUTH_DOMAIN,
+            "projectId": settings.FIREBASE_PROJECT_ID,
+            "storageBucket": settings.FIREBASE_STORAGE_BUCKET,
+            "messagingSenderId": settings.FIREBASE_MESSAGING_SENDER_ID,
+            "appId": settings.FIREBASE_APP_ID
+        }
+
+        # 10. Filter Newspapers by country
+        if country:
+             # Normalize selected country name for newspaper matching
+             target_name, _ = normalize_country(country)
+             # Filter papers by country name or "Global"
+             context_papers = [p for p in papers if p.country == target_name or p.country == "Global"]
+        else:
+             context_papers = [p for p in papers if p.country == "Global"]
+
+        context = {
+            "request": request,
+            "digest": digest_data,
+            "date": latest_digest.date.strftime("%Y-%m-%d") if latest_digest else "System Initializing",
+            "firebase_config": firebase_config,
+            "ads": ads,
+            "papers": context_papers,
+            "vapid_public_key": settings.VAPID_PUBLIC_KEY,
+            "selected_category": category,
+            "selected_country": country,
+            "trending_title": trending_title,
+            "selected_country_name": selected_country_name,
+            "country_match_keys": country_match_keys,
+            "blueprint": blueprint,
+            "admin_api_url": os.getenv("ADMIN_API_URL", "http://localhost:5000")
+        }
+
+        return templates.TemplateResponse("dashboard.html", context)
+
+    except Exception as e:
+        import traceback
+        logger.error(f"DASHBOARD CRASH: {str(e)}")
+        logger.error(traceback.format_exc())
+        return templates.TemplateResponse("error.html", {"request": request, "message": f"Intelligence Node Error: {str(e)}", "stack": traceback.format_exc()})
 
 @router.get("/saved")
 async def saved_page(request: Request):
@@ -391,8 +415,42 @@ async def business_intelligence(request: Request, db: Session = Depends(get_db))
         "request": request, 
         "firebase_config": firebase_config,
         "premium_intel": premium_intel,  # Changed from premium_data
-        "restricted_email": "chaparapuashokreddy581@gmail.com"
+        "restricted_email": "chaparapuashokreddy666@gmail.com"
     })
+
+@router.get("/api/article/{article_id}")
+async def get_article_detail(article_id: int, db: Session = Depends(get_db)):
+    """Fetch full intelligence detail for a specific article"""
+    article = db.query(VerifiedNews).filter(VerifiedNews.id == article_id).first()
+    if not article:
+        raise HTTPException(status_code=404, detail="Intelligence artifact not found")
+    
+    data = article.to_dict()
+    
+    # Get image from raw news if missing
+    if not data.get("image_url") and article.raw_news:
+        data["image_url"] = article.raw_news.url_to_image
+        
+    # Apply fallback image if still missing
+    if not data.get("image_url"):
+        seed = f"{data.get('title', '')}{data.get('id', '')}"
+        data["image_url"] = get_fallback_image(seed)
+        
+    # Ensure time_ago is present or calculated
+    # For now, we'll just use a default or format the published_at
+    if article.published_at:
+        from datetime import datetime
+        diff = datetime.utcnow() - article.published_at
+        if diff.days > 0:
+            data["time_ago"] = f"{diff.days}d ago"
+        elif diff.seconds > 3600:
+            data["time_ago"] = f"{diff.seconds // 3600}h ago"
+        else:
+            data["time_ago"] = f"{diff.seconds // 60}m ago"
+    else:
+        data["time_ago"] = "Just Now"
+
+    return data
 
 @router.get("/api/breaking-news")
 async def get_breaking_news(country: str = None, db: Session = Depends(get_db)):
@@ -617,6 +675,20 @@ async def force_sync_intelligence(background_tasks: BackgroundTasks):
 
     background_tasks.add_task(_run_cycle)
     return {"status": "success", "message": "Intelligence scan initiated in background."}
+
+@router.post("/api/refresh-digest")
+async def refresh_digest(db: Session = Depends(get_db)):
+    """Manually regenerate the daily digest from existing verified news"""
+    from src.digest.generator import DigestGenerator
+    generator = DigestGenerator()
+    try:
+        digest = await generator.create_daily_digest(db)
+        if digest:
+            return {"status": "success", "message": "Live site updated successfully!"}
+        return {"status": "error", "message": "Failed to generate digest"}
+    except Exception as e:
+        logger.error(f"Manual Digest Refresh Failed: {e}")
+        return {"status": "error", "message": str(e)}
 
 
 @router.get("/api/system-check")
