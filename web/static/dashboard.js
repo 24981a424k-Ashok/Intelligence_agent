@@ -493,13 +493,16 @@ let currentModalArticleId = null;
 
 async function handleCardClick(card) {
     const id = card.dataset.id;
-    if (!id) return;
+    const url = card.dataset.url;
+    if (!id || !url) return;
 
-    // Track history
+    // Track history in background
     trackHistory(id);
 
-    // Open Modal
-    openArticleModal(id);
+    // Redirect directly
+    if (url && url !== '#') {
+        window.open(url, '_blank');
+    }
 }
 
 async function openArticleModal(id) {
