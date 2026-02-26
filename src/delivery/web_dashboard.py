@@ -165,6 +165,16 @@ async def dashboard(request: Request, category: str = None, country: str = None,
         latest_digest = db.query(DailyDigest).filter(DailyDigest.is_published == True).order_by(DailyDigest.date.desc()).first()
         if not latest_digest:
             latest_digest = db.query(DailyDigest).order_by(DailyDigest.date.desc()).first()
+        
+        # 3.A AUTO-REPAIR: If news exists but no digest, generate one immediately
+        from src.database.models import VerifiedNews
+        if not latest_digest and db.query(VerifiedNews).count() > 0:
+            logger.info("Auto-Repair: Verified news found but no digest. Generating now...")
+            from src.digest.generator import DigestGenerator
+            generator = DigestGenerator()
+            # We await this synchronously to ensure the user gets a working page on the first hit
+            await generator.create_daily_digest(db)
+            latest_digest = db.query(DailyDigest).filter(DailyDigest.is_published == True).order_by(DailyDigest.date.desc()).first()
 
         # 4. Diagnostics & Status
         from src.database.models import RawNews, VerifiedNews, Advertisement, Newspaper
