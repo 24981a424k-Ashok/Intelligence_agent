@@ -86,8 +86,8 @@ def get_fallback_image(seed: str) -> str:
 def normalize_country(c):
     if not c: return None, []
     mapping = {
-        "jp": "Japan", "cn": "China", "us": "USA", "in": "India", "gb": "UK",
-        "ru": "Russia", "de": "Germany", "fr": "France", "au": "Australia", "sg": "Singapore", "ae": "UAE"
+        "jp": "Japan", "us": "USA", "in": "India", "gb": "UK",
+        "ru": "Russia", "de": "Germany", "fr": "France", "sg": "Singapore"
     }
     # Reverse mapping: "India" -> "in"
     rev_mapping = {v.lower(): k for k, v in mapping.items()}
@@ -310,8 +310,8 @@ async def dashboard(request: Request, category: str = None, country: str = None,
         # 8. Global Home View filtering
         if digest_data:
             non_english = [
-                'jp', 'cn', 'ru', 'de', 'fr', 'ae', 'sg', 
-                'Japan', 'China', 'Russia', 'Germany', 'France', 'UAE', 'Singapore'
+                'jp', 'ru', 'de', 'fr', 'sg', 
+                'Japan', 'Russia', 'Germany', 'France', 'Singapore'
             ]
             # ONLY filter non-english out if we are on the Home view (no country or category selected)
             if not country and not category:

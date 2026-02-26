@@ -29,7 +29,7 @@ class GNewsCollector:
         if not self.api_keys: return None
         return random.choice(self.api_keys)
 
-    def fetch_country_news(self, countries: List[str] = ['us', 'gb', 'jp', 'cn', 'in', 'ru', 'de', 'fr', 'au', 'sg', 'ae']) -> int:
+    def fetch_country_news(self, countries: List[str] = ['us', 'gb', 'jp', 'in', 'ru', 'de', 'fr', 'sg']) -> int:
         """
         Fetch specialized intelligence and top headlines for specific countries.
         """
@@ -42,11 +42,9 @@ class GNewsCollector:
         specialized_features = {
             'us': '("Stock Market" OR "Fed News" OR "Corporate News" OR "AI" OR "Tech" OR "Startup")',
             'gb': '("Policy" OR "Regulation" OR "Global Finance" OR "UK–EU relations")',
-            'cn': '("Economy" OR "Trade News" OR "Manufacturing" OR "Supply-chain" OR "Tech" OR "AI")',
             'de': '("EU economy" OR "Industry news" OR "Energy policy" OR "Climate policy")',
             'jp': '("Technology" OR "Robotics" OR "Market" OR "Currency")',
             'sg': '("Startup" OR "Fintech" OR "ASEAN economy")',
-            'ae': '("Energy" OR "Oil markets" OR "Infrastructure" OR "Mega-projects" OR "Geopolitics")',
             'in': '("Policy" OR "Market" OR "Economy" OR "Tech" OR "Startup" OR "Infrastructure")'
         }
 
@@ -55,7 +53,7 @@ class GNewsCollector:
         # With 2 keys, we can afford ~2 req/run * 2 keys = 4 requests per run?
         # Let's increase target countries to 3 to be safe and cover more ground.
         target_countries = []
-        priority_countries = ['cn', 'au', 'in']
+        priority_countries = ['in', 'us']
         
         # 1. Add priority countries first
         for pc in priority_countries:
@@ -99,12 +97,9 @@ class GNewsCollector:
                     # For non-English countries, GNews often works better with localized lang or no lang constraint
                     if not query: # Only override lang for general top-headlines
                         if country == 'jp': params['lang'] = 'ja'
-                        if country == 'cn': params['lang'] = 'zh' # Native Chinese
-                        if country == 'au': params['lang'] = 'en' # Native English
                         if country == 'ru': params['lang'] = 'ru'
                         if country == 'de': params['lang'] = 'de'
                         if country == 'fr': params['lang'] = 'fr'
-                        if country == 'ae': params['lang'] = 'ar' # Added Arabic for UAE
                         if country == 'in': params['lang'] = 'en' # India often wants English, but can support 'hi' if requested
                     
                     response = requests.get(f"{self.base_url}/{endpoint}", params=params)

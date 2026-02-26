@@ -72,8 +72,8 @@ RSS_FEEDS = {
 
     # 15. Regional Fallbacks (To fix empty nodes)
     # 15. Regional Fallbacks (NATIVE LANGUAGE EDITIONS)
-    # China: Using Lianhe Zaobao (Singapore/China focus in Chinese) as mainland feeds are often blocked/unavailable
-    "zaobao-china": "https://www.zaobao.com.sg/rss/china.xml", 
+    "zaobao-china": "https://www.zaobao.com.sg/rss/china.xml", # Kept for general world news but with cn tag (Wait, user said delete node)
+    # Removing zaobao-china to fully delete node
     
     # Japan: NHK News (Japanese)
     "nhk-japan": "https://www.nhk.or.jp/rss/news/cat0.xml",
@@ -88,7 +88,7 @@ RSS_FEEDS = {
     "lemonde-fr": "https://www.lemonde.fr/rss/une.xml",
 
     # Australia: ABC (English - Native)
-    "abc-australia": "https://www.abc.net.au/news/feed/5112088/rss.xml",
+    # Removing abc-australia to fully delete node
 
     # Russia: Kommersant (Russian)
     "kommersant-ru": "https://www.kommersant.ru/RSS/news.xml",
@@ -98,7 +98,7 @@ RSS_FEEDS = {
     
     # 16. Missing Markets (United States & UAE)
     # UAE: Al Bayan (Arabic)
-    "albayan-uae": "https://www.albayan.ae/rss",
+    # Removing albayan-uae to fully delete node
     
     "nyt-us": "https://rss.nytimes.com/services/xml/rss/nyt/US.xml", # USA
     "cnn-us": "http://rss.cnn.com/rss/cnn_us.rss" # USA
@@ -223,16 +223,15 @@ class RSSCollector:
     def _detect_country(self, source_id: str) -> str:
         """Map source IDs to country codes for auto-tagging"""
         mapping = {
-            "zaobao-china": "cn",
+            "nhk-japan": "jp",
             "nhk-japan": "jp",
             "guardian-uk": "gb",
             "bbc-news": "gb",
             "tagesschau-de": "de",
             "lemonde-fr": "fr",
-            "abc-australia": "au",
+            "lemonde-fr": "fr",
             "kommersant-ru": "ru",
             "straitstimes-singapore": "sg",
-            "albayan-uae": "ae",
             "nyt-us": "us",
             "cnn-us": "us",
             "times-of-india": "in",

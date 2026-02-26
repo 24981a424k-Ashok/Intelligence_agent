@@ -89,8 +89,8 @@ class NewsCollector:
             if biz_search['status'] == 'ok':
                 all_articles.extend(biz_search.get('articles', []))
             
-            # 5. Dedicated Country Fetch (Japan, China, USA)
-            target_countries = ['jp', 'cn', 'us']
+            # 5. Dedicated Country Fetch (Japan, USA)
+            target_countries = ['jp', 'us']
             for country_code in target_countries:
                 try:
                     country_res = self.client.get_top_headlines(
