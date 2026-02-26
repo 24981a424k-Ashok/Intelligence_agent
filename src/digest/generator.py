@@ -231,8 +231,8 @@ class DigestGenerator:
             if name in ['China', 'UAE']:
                 logger.info(f"APPEND SUCCESS: {name} now has {len(countries[name])} stories. Added: {item_data['title'][:30]}")
 
-        # 2.B Populate Categories (Keep 400 limit for headlines)
-        for n in sorted_news[:400]:
+        # 2.B Populate Categories (Increased pool for better fill)
+        for n in sorted_news[:600]:
             cat = n.category or "Breaking News"
             
             item_data = {

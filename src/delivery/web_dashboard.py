@@ -283,23 +283,27 @@ async def dashboard(request: Request, category: str = None, country: str = None,
                 "business": "Business & Economy", "economy": "Business & Economy",
                 "tech": "Technology", "technology": "Technology",
                 "science": "Science & Health", "health": "Science & Health",
-                "world": "World News", "india": "India / Local News"
+                "world": "World News", "india": "India / Local News",
+                "ai": "AI & Machine Learning"
             }
             target_key = category_map.get(normalized_cat, category.strip())
             
             categories = digest_data.get("categories", {})
             cat_stories = categories.get(target_key) or categories.get(normalized_cat)
             
+            # Partial/Fuzzy match if direct lookup fails
             if not cat_stories:
+                search_term = target_key.lower()
                 for k, v in categories.items():
-                    if k.lower() == normalized_cat or k.lower() == target_key.lower():
+                    if search_term in k.lower() or k.lower() in search_term:
                         cat_stories = v
                         break
             
             if cat_stories:
+                # IMPORTANT: Overwrite top_stories with the full category list
                 digest_data["top_stories"] = cat_stories
             else:
-                # Direct match fallback
+                # Final fallback: filter existing top_stories
                 all_stories = digest_data.get("top_stories", [])
                 digest_data["top_stories"] = [s for s in all_stories if s.get("category") == category]
 
