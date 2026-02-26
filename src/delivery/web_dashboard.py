@@ -304,14 +304,16 @@ async def dashboard(request: Request, category: str = None, country: str = None,
                 digest_data["top_stories"] = [s for s in all_stories if s.get("category") == category]
 
         # 8. Global Home View filtering
-        if digest_data and not country:
+        if digest_data:
             non_english = [
-            'jp', 'cn', 'ru', 'de', 'fr', 'ae', 'sg', 
-            'Japan', 'China', 'Russia', 'Germany', 'France', 'UAE', 'Singapore'
-        ]
-        for section in ["breaking_news", "trending_news", "brief", "top_stories"]:
-            if section in digest_data:
-                digest_data[section] = [b for b in digest_data[section] if b.get("country") not in non_english]
+                'jp', 'cn', 'ru', 'de', 'fr', 'ae', 'sg', 
+                'Japan', 'China', 'Russia', 'Germany', 'France', 'UAE', 'Singapore'
+            ]
+            # ONLY filter non-english out if we are on the Home view (no country or category selected)
+            if not country and not category:
+                for section in ["breaking_news", "trending_news", "brief", "top_stories"]:
+                    if section in digest_data:
+                        digest_data[section] = [b for b in digest_data[section] if b.get("country") not in non_english]
 
         # 9. Fallback images
         if digest_data:
