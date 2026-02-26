@@ -411,8 +411,6 @@ class DigestGenerator:
         # FINAL DEBUG
         f_countries = digest_data.get("countries", {})
         logger.info(f"FINAL DIGEST STATE: China={len(f_countries.get('China', []))}, UAE={len(f_countries.get('UAE', []))}")
-        with open("digest_debug.log", "a") as f:
-            f.write(f"FINAL DEBUG: China={len(f_countries.get('China', []))}, UAE={len(f_countries.get('UAE', []))}\n")
 
         # Save and Mark as Published for Dashboard visibility
         digest_entry = DailyDigest(
