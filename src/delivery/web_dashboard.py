@@ -1,6 +1,7 @@
 import os
 import logging
 import copy
+from datetime import datetime, timedelta
 from fastapi import APIRouter, Request, Depends, HTTPException, BackgroundTasks
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
@@ -231,28 +232,6 @@ async def dashboard(request: Request, category: str = None, country: str = None,
             if "breaking_news" in digest_data:
                 digest_data["breaking_news"] = [s for s in digest_data["breaking_news"] if is_fresh(s)]
 
-        # 5.B Freshness Filter (8 Hour Limit)
-        # We also increase quantities here
-        # Note: We use relative timing if timestamps are available, or assume recently generated
-        now_utc = datetime.utcnow()
-        eight_hours_ago = now_utc - timedelta(hours=8)
-        
-        def is_fresh(item):
-            # Try to parse published_at if it exists
-            pub = item.get("published_at")
-            if pub:
-                try:
-                    p_time = datetime.fromisoformat(pub.replace("Z", "+00:00"))
-                    return p_time > eight_hours_ago
-                except:
-                    return True # If parse fails, keep it
-            return True # Keep if no timestamp
-
-        if "top_stories" in digest_data:
-            digest_data["top_stories"] = [s for s in digest_data["top_stories"] if is_fresh(s)]
-        if "breaking_news" in digest_data:
-            digest_data["breaking_news"] = [s for s in digest_data["breaking_news"] if is_fresh(s)]
-        
         # Handle case where content_json is stringified
         if isinstance(digest_data, str):
             import json
@@ -403,7 +382,8 @@ async def dashboard(request: Request, category: str = None, country: str = None,
             "digest": digest_data,
             "date": latest_digest.date.strftime("%Y-%m-%d") if latest_digest else "System Initializing",
             "firebase_config": firebase_config,
-            "ads": ads,
+            "left_ads": left_ads,
+            "right_ads": right_ads,
             "papers": context_papers,
             "vapid_public_key": settings.VAPID_PUBLIC_KEY,
             "selected_category": category,
