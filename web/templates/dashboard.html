@@ -25,7 +25,7 @@
         <button class="sidebar-close" onclick="dismissSidebar('sidebar-left')">×</button>
         <div class="sidebar-content" style="text-align: center;">
             <span class="sidebar-label" style="color: var(--text-muted); font-size: 0.6rem;">ADVERTISEMENT</span>
-            {% set ad = ads[0] if ads else None %}
+            {% set ad = left_ads[0] if left_ads else None %}
             <div class="ad-placeholder"
                 style="width: 100%; height: 320px; background: linear-gradient(135deg, #1e293b, #0f172a); margin: 5px 0; border: 1px solid var(--border-highlight); border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; overflow: hidden; position: relative;">
                 <img src="{{ ad.image_url if ad else 'https://images.unsplash.com/photo-1614064641938-3bbee52942c7?auto=format&fit=crop&w=400&q=80' }}"
@@ -45,7 +45,7 @@
         <button class="sidebar-close" onclick="dismissSidebar('sidebar-right')">×</button>
         <div class="sidebar-content" style="text-align: center;">
             <span class="sidebar-label" style="color: var(--text-muted); font-size: 0.6rem;">PROMOTED</span>
-            {% set ad = ads[1] if ads|length > 1 else (ads[0] if ads else None) %}
+            {% set ad = right_ads[0] if right_ads else None %}
             <div class="ad-placeholder"
                 style="width: 100%; height: 320px; background: linear-gradient(135deg, #2d1b4e, #1a0f2e); margin: 5px 0; border: 1px solid var(--border-highlight); border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; overflow: hidden; position: relative;">
                 <img src="{{ ad.image_url if ad else 'https://images.unsplash.com/photo-1639762681485-074b7f938ba0?auto=format&fit=crop&w=400&q=80' }}"
@@ -67,7 +67,7 @@
         <div class="mobile-ad-content">
             <button class="mobile-ad-close" onclick="dismissMobileAd()">CLOSE X</button>
             <div class="mobile-ad-banner">
-                {% set ad = ads[0] if ads else None %}
+                {% set ad = left_ads[0] if left_ads else (right_ads[0] if right_ads else None) %}
                 <img src="{{ ad.image_url if ad else 'https://images.unsplash.com/photo-1557804506-669a67965ba0?auto=format&fit=crop&w=800&q=80' }}"
                     alt="Special Offer">
                 <div class="mobile-ad-banner-overlay">
@@ -101,14 +101,15 @@
 
     <!-- 2. NAVIGATION BAR -->
     <header>
-        <a href="/dashboard" class="logo">
-            UNI INTEl
+        <a href="/dashboard" class="logo" style="display: flex; gap: 0.25rem; font-weight: 800;">
+            <span style="color: #FFFFFF;">UNI</span>
+            <span style="color: #0047AB;">INTEL</span>
         </a>
 
         <nav class="nav-center">
             <a href="/dashboard" class="nav-link">Home</a>
             <div class="nav-item">
-                Category
+                <span style="display: flex; align-items: center; height: 100%;">Category</span>
                 <div class="dropdown-menu">
                     <a href="/dashboard?category=sports" class="dropdown-link">Sports</a>
                     <a href="/dashboard?category=politics" class="dropdown-link">Politics</a>
@@ -123,7 +124,7 @@
             </div>
 
             <div class="nav-item">
-                Global Nodes
+                <span style="display: flex; align-items: center; height: 100%;">Global Nodes</span>
                 <div class="dropdown-menu">
                     <a href="/dashboard?country=japan" class="dropdown-link">🇯🇵 Japan Node</a>
                     <a href="/dashboard?country=gb" class="dropdown-link">🇬🇧 UK Node</a>

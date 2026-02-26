@@ -174,6 +174,7 @@ class Advertisement(Base):
     id = Column(Integer, primary_key=True, index=True)
     image_url = Column(String, nullable=False)
     caption = Column(String, nullable=True)
+    position = Column(String, default="both") # "left", "right", "both"
     target_node = Column(String, default="Global")
     created_at = Column(DateTime, default=datetime.utcnow)
 

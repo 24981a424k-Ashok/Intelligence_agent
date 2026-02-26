@@ -180,7 +180,17 @@ async def dashboard(request: Request, category: str = None, country: str = None,
         from src.database.models import RawNews, VerifiedNews, Advertisement, Newspaper
         raw_count = db.query(RawNews).count()
         verified_count = db.query(VerifiedNews).count()
-        ads = db.query(Advertisement).order_by(Advertisement.created_at.desc()).limit(10).all()
+        
+        # 4.B Filter Ads by Position
+        all_ads = db.query(Advertisement).order_by(Advertisement.created_at.desc()).limit(30).all()
+        # Ensure position field exists (fallback for old records)
+        for ad in all_ads:
+            if not hasattr(ad, 'position') or not ad.position:
+                ad.position = 'both'
+        
+        left_ads = [a for a in all_ads if a.position in ["left", "both"]]
+        right_ads = [a for a in all_ads if a.position in ["right", "both"]]
+
         papers = db.query(Newspaper).order_by(Newspaper.name.asc()).all()
         
         system_status = "Syncing"
@@ -200,6 +210,28 @@ async def dashboard(request: Request, category: str = None, country: str = None,
             "is_empty_regional": True,
             "system_status_msg": system_status
         }
+
+        # 5.B Freshness Filter (8 Hour Limit)
+        # We also increase quantities here
+        # Note: We use relative timing if timestamps are available, or assume recently generated
+        now_utc = datetime.utcnow()
+        eight_hours_ago = now_utc - timedelta(hours=8)
+        
+        def is_fresh(item):
+            # Try to parse published_at if it exists
+            pub = item.get("published_at")
+            if pub:
+                try:
+                    p_time = datetime.fromisoformat(pub.replace("Z", "+00:00"))
+                    return p_time > eight_hours_ago
+                except:
+                    return True # If parse fails, keep it
+            return True # Keep if no timestamp
+
+        if "top_stories" in digest_data:
+            digest_data["top_stories"] = [s for s in digest_data["top_stories"] if is_fresh(s)]
+        if "breaking_news" in digest_data:
+            digest_data["breaking_news"] = [s for s in digest_data["breaking_news"] if is_fresh(s)]
         
         # Handle case where content_json is stringified
         if isinstance(digest_data, str):
@@ -825,6 +857,7 @@ async def get_all_ads(db: Session = Depends(get_db)):
 class AdCreateRequest(BaseModel):
     image_url: str
     caption: str
+    position: str = "both"
     target_node: str = "Global"
 
 @router.post("/api/ads")
@@ -835,6 +868,7 @@ async def create_ad(payload: AdCreateRequest, db: Session = Depends(get_db)):
         new_ad = Advertisement(
             image_url=payload.image_url,
             caption=payload.caption,
+            position=payload.position,
             target_node=payload.target_node
         )
         db.add(new_ad)
