@@ -174,8 +174,9 @@ class Advertisement(Base):
     id = Column(Integer, primary_key=True, index=True)
     image_url = Column(String, nullable=False)
     caption = Column(String, nullable=True)
-    position = Column(String, default="both") # "left", "right", "both"
+    position = Column(String, default="both") # "left", "right", "both", "mobile"
     target_node = Column(String, default="Global")
+    target_url = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
 class Newspaper(Base):

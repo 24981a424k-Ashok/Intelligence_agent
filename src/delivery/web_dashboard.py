@@ -191,6 +191,7 @@ async def dashboard(request: Request, category: str = None, country: str = None,
         
         left_ads = [a for a in all_ads if a.position in ["left", "both"]]
         right_ads = [a for a in all_ads if a.position in ["right", "both"]]
+        mobile_ads = [a for a in all_ads if a.position in ["mobile", "both"]]
 
         papers = db.query(Newspaper).order_by(Newspaper.name.asc()).all()
         
@@ -368,12 +369,20 @@ async def dashboard(request: Request, category: str = None, country: str = None,
             "appId": settings.FIREBASE_APP_ID
         }
 
-        # 10. Filter Newspapers by country
+        # 10. Filter Newspapers by country (Guarantee Minimum 4)
         if country:
              # Normalize selected country name for newspaper matching
              target_name, _ = normalize_country(country)
              # Filter papers by country name or "Global"
-             context_papers = [p for p in papers if p.country == target_name or p.country == "Global"]
+             specific_papers = [p for p in papers if p.country == target_name]
+             global_papers = [p for p in papers if p.country == "Global"]
+             
+             # If less than 4 specific papers, pad with global
+             if len(specific_papers) < 4:
+                 needed = 4 - len(specific_papers)
+                 context_papers = specific_papers + global_papers[:needed]
+             else:
+                 context_papers = specific_papers
         else:
              context_papers = [p for p in papers if p.country == "Global"]
 
@@ -384,6 +393,7 @@ async def dashboard(request: Request, category: str = None, country: str = None,
             "firebase_config": firebase_config,
             "left_ads": left_ads,
             "right_ads": right_ads,
+            "mobile_ads": mobile_ads,
             "papers": context_papers,
             "vapid_public_key": settings.VAPID_PUBLIC_KEY,
             "selected_category": category,
@@ -859,6 +869,7 @@ class AdCreateRequest(BaseModel):
     caption: str
     position: str = "both"
     target_node: str = "Global"
+    target_url: str = None
 
 @router.post("/api/ads")
 async def create_ad(payload: AdCreateRequest, db: Session = Depends(get_db)):
@@ -869,7 +880,8 @@ async def create_ad(payload: AdCreateRequest, db: Session = Depends(get_db)):
             image_url=payload.image_url,
             caption=payload.caption,
             position=payload.position,
-            target_node=payload.target_node
+            target_node=payload.target_node,
+            target_url=payload.target_url
         )
         db.add(new_ad)
         db.commit()

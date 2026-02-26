@@ -40,7 +40,7 @@
         <div style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-bottom:1rem;">
             {% for tag in story.tags[:3] %}
             <span
-                style="background:rgba(255,255,255,0.1); color:white; padding:4px 10px; border-radius:4px; font-size:0.7rem; font-weight:700; text-transform:uppercase;">{{
+                style="background:rgba(128,128,128,0.2); color:var(--text-primary); padding:4px 10px; border-radius:4px; font-size:0.7rem; font-weight:700; text-transform:uppercase;">{{
                 tag }}</span>
             {% endfor %}
         </div>
@@ -58,13 +58,13 @@
     <!-- Who is Affected -->
     <div class="intel-section" style="background:rgba(59, 130, 246, 0.05); border-left:3px solid var(--accent-blue);">
         <h4 style="color:var(--accent-blue);">👥 Who is Affected</h4>
-        <p style="font-size:0.9rem; color:#cbd5e1;">{{ story.affected }}</p>
+        <p style="font-size:0.9rem; color:var(--text-secondary);">{{ story.affected }}</p>
     </div>
 
     <!-- Why It Matters -->
     <div class="intel-section" style="background:rgba(251, 188, 4, 0.05); border-left:3px solid var(--accent-gold);">
         <h4 style="color:var(--accent-gold);">⚡ Why It Matters</h4>
-        <p style="font-size:0.9rem; color:#cbd5e1;">{{ story.why }}</p>
+        <p style="font-size:0.9rem; color:var(--text-secondary);">{{ story.why }}</p>
     </div>
 
     <div class="intel-footer">
