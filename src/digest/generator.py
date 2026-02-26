@@ -35,11 +35,9 @@ class DigestGenerator:
                 seen_ids.add(n.id)
         
         logger.info(f"Digest: Fetched {len(recent_news)} articles (Global: {len(global_news)}, Regional: {len(regional_news)})")
-        with open("digest_debug.log", "a") as f:
-            f.write(f"\n--- Digest Refresh at {datetime.utcnow()} ---\n")
-            f.write(f"recent_news count: {len(recent_news)}\n")
-            countries_found = [n.country for n in recent_news if n.country]
-            f.write(f"Countries in recent_news: {set(countries_found)}\n")
+        logger.info(f"recent_news count: {len(recent_news)}")
+        countries_found = [n.country for n in recent_news if n.country]
+        logger.info(f"Countries in recent_news: {set(countries_found)}")
         
         # Generate Breaking News (NEW)
         breaking_news_items = []
