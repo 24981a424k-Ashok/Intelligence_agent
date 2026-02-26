@@ -786,3 +786,128 @@ async def get_universe_news(payload: UniverseRequest):
     except Exception as e:
         logger.error(f"Universe News Fetch Failed: {e}")
         return {"status": "error", "message": str(e)}
+
+# --- ADMIN MANAGEMENT API ENDPOINTS ---
+
+@router.get("/api/articles")
+async def get_all_articles(db: Session = Depends(get_db)):
+    """Backend endpoint for admin panel to fetch all verified intelligence"""
+    try:
+        articles = db.query(VerifiedNews).order_by(VerifiedNews.published_at.desc()).all()
+        return [a.to_dict() for a in articles]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.delete("/api/articles/{article_id}")
+async def delete_article(article_id: int, db: Session = Depends(get_db)):
+    """Admin endpoint to remove an intelligence node"""
+    try:
+        article = db.query(VerifiedNews).filter(VerifiedNews.id == article_id).first()
+        if not article:
+            raise HTTPException(status_code=404, detail="Article not found")
+        db.delete(article)
+        db.commit()
+        return {"status": "success", "message": f"Article {article_id} deleted"}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/api/ads")
+async def get_all_ads(db: Session = Depends(get_db)):
+    """Fetch all campaign nodes (advertisements)"""
+    try:
+        from src.database.models import Advertisement
+        ads = db.query(Advertisement).order_by(Advertisement.created_at.desc()).all()
+        return ads
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+class AdCreateRequest(BaseModel):
+    image_url: str
+    caption: str
+    target_node: str = "Global"
+
+@router.post("/api/ads")
+async def create_ad(payload: AdCreateRequest, db: Session = Depends(get_db)):
+    """Admin endpoint to deploy a new campaign node"""
+    try:
+        from src.database.models import Advertisement
+        new_ad = Advertisement(
+            image_url=payload.image_url,
+            caption=payload.caption,
+            target_node=payload.target_node
+        )
+        db.add(new_ad)
+        db.commit()
+        db.refresh(new_ad)
+        return {"success": True, "ad": new_ad}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.delete("/api/ads/{ad_id}")
+async def delete_ad(ad_id: int, db: Session = Depends(get_db)):
+    """Remove a campaign node"""
+    try:
+        from src.database.models import Advertisement
+        ad = db.query(Advertisement).filter(Advertisement.id == ad_id).first()
+        if not ad:
+            raise HTTPException(status_code=404, detail="Ad not found")
+        db.delete(ad)
+        db.commit()
+        return {"success": True}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/api/newspapers")
+async def get_all_newspapers(db: Session = Depends(get_db)):
+    """Fetch all registered source nodes"""
+    try:
+        from src.database.models import Newspaper
+        papers = db.query(Newspaper).order_by(Newspaper.name.asc()).all()
+        return papers
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+class NewspaperCreateRequest(BaseModel):
+    name: str
+    url: str
+    country: str = "Global"
+    logo_text: str = None
+    logo_color: str = None
+
+@router.post("/api/newspapers")
+async def create_newspaper(payload: NewspaperCreateRequest, db: Session = Depends(get_db)):
+    """Register a new newspaper source"""
+    try:
+        from src.database.models import Newspaper
+        new_paper = Newspaper(
+            name=payload.name,
+            url=payload.url,
+            country=payload.country,
+            logo_text=payload.logo_text,
+            logo_color=payload.logo_color
+        )
+        db.add(new_paper)
+        db.commit()
+        db.refresh(new_paper)
+        return {"success": True, "paper": new_paper}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.delete("/api/newspapers/{paper_id}")
+async def delete_newspaper(paper_id: int, db: Session = Depends(get_db)):
+    """Unregister a source node"""
+    try:
+        from src.database.models import Newspaper
+        paper = db.query(Newspaper).filter(Newspaper.id == paper_id).first()
+        if not paper:
+            raise HTTPException(status_code=404, detail="Newspaper not found")
+        db.delete(paper)
+        db.commit()
+        return {"success": True}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
