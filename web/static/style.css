@@ -156,11 +156,9 @@ header {
     font-family: var(--font-display);
     font-size: 1.5rem;
     font-weight: 800;
-    background: linear-gradient(90deg, var(--text-primary), var(--text-secondary));
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
     letter-spacing: -0.02em;
+    display: flex;
+    text-decoration: none;
 }
 
 .nav-center {
@@ -169,7 +167,8 @@ header {
     height: 100%;
 }
 
-.nav-item {
+.nav-item,
+.nav-link {
     height: 100%;
     display: flex;
     align-items: center;
@@ -178,6 +177,7 @@ header {
     color: var(--text-secondary);
     position: relative;
     cursor: pointer;
+    padding: 0 0.5rem;
 }
 
 .nav-item:hover {

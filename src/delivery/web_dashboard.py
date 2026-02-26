@@ -210,6 +210,26 @@ async def dashboard(request: Request, category: str = None, country: str = None,
             "is_empty_regional": True,
             "system_status_msg": system_status
         }
+        
+        # 5.B Freshness Filter (8 Hour Limit)
+        now_utc = datetime.utcnow()
+        eight_hours_ago = now_utc - timedelta(hours=8)
+        
+        def is_fresh(item):
+            # Try to parse published_at if it exists
+            pub = item.get("published_at")
+            if pub:
+                try:
+                    p_time = datetime.fromisoformat(pub.replace("Z", "+00:00"))
+                    return p_time > eight_hours_ago
+                except: return True
+            return True
+
+        if digest_data:
+            if "top_stories" in digest_data:
+                digest_data["top_stories"] = [s for s in digest_data["top_stories"] if is_fresh(s)]
+            if "breaking_news" in digest_data:
+                digest_data["breaking_news"] = [s for s in digest_data["breaking_news"] if is_fresh(s)]
 
         # 5.B Freshness Filter (8 Hour Limit)
         # We also increase quantities here
