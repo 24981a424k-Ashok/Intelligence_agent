@@ -63,6 +63,37 @@
     --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
 }
 
+/* Light Mode Specific Overrides */
+[data-theme="light"] body {
+    color: var(--text-primary);
+}
+
+[data-theme="light"] .logo,
+[data-theme="light"] .logo span {
+    color: var(--text-primary) !important;
+}
+
+[data-theme="light"] p,
+[data-theme="light"] span:not(.badge):not(.tag):not(.breaking-tag):not(.ticker-title):not(.brief-dot):not(.sidebar-label),
+[data-theme="light"] div {
+    color: inherit;
+    /* Will inherit the darker var(--text-primary) from body */
+}
+
+[data-theme="light"] .section-title span,
+[data-theme="light"] .info-item span {
+    color: inherit;
+}
+
+/* Ensure mobile sidebar heading is visible in light mode */
+[data-theme="light"] .mobile-sidebar-header,
+[data-theme="light"] .mobile-sidebar-header h2,
+[data-theme="light"] .mobile-menu-header,
+[data-theme="light"] .mobile-menu-header .logo,
+[data-theme="light"] .mobile-menu-header .logo span {
+    color: var(--text-primary) !important;
+}
+
 * {
     box-sizing: border-box;
 }

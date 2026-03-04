@@ -14,10 +14,24 @@ from src.utils.translator import NewsTranslator
 from pydantic import BaseModel
 import requests
 
+from src.analysis.student_classifier import StudentClassifier
+
 chat_engine = NewsChatEngine()
 universe_collector = UniverseCollector()
 translator = NewsTranslator()
+student_classifier = StudentClassifier()
 logger = logging.getLogger(__name__)
+
+router = APIRouter()
+templates = Jinja2Templates(directory="web/templates")
+
+# Simple in-memory cache for student news to avoid re-analysis
+_student_news_cache = {
+    "last_updated": None,
+    "articles": [],
+    "trends": {}
+}
+
 
 router = APIRouter()
 templates = Jinja2Templates(directory="web/templates")
@@ -374,7 +388,10 @@ async def dashboard(request: Request, category: str = None, country: str = None,
              # Normalize selected country name for newspaper matching
              target_name, _ = normalize_country(country)
              # Filter papers by country name or "Global"
-             specific_papers = [p for p in papers if p.country == target_name]
+             specific_papers = [
+                 p for p in papers 
+                 if p.country and (p.country.lower() in [key.lower() for key in match_keys] or p.country.lower() == target_name.lower())
+             ]
              global_papers = [p for p in papers if p.country == "Global"]
              
              # If less than 4 specific papers, pad with global
@@ -828,6 +845,183 @@ async def get_universe_news(payload: UniverseRequest):
     except Exception as e:
         logger.error(f"Universe News Fetch Failed: {e}")
         return {"status": "error", "message": str(e)}
+@router.get("/student-news")
+def student_news_page(request: Request, category: str = None, profile: str = None, db: Session = Depends(get_db)):
+    """Render the standalone Student News portal."""
+    country_node = "India" # Locked to India for now
+    
+    # Process or get from cache
+    _update_student_cache_if_needed(db)
+    
+    # Filter by category if requested
+    articles = _student_news_cache["articles"]
+    if category and category != "All":
+        articles = [a for a in articles if a["category"] == category]
+        
+    if profile:
+        articles = [a for a in articles if profile in a.get("profiles", [])]
+        
+    trends = _student_news_cache["trends"]
+    
+    # Render template (which we will create next)
+    return templates.TemplateResponse("student_news.html", {
+        "request": request,
+        "articles": articles,
+        "trends": trends,
+        "current_category": category or "All",
+        "current_profile": profile,
+        "categories": list(student_classifier.CATEGORIES.keys()),
+        "profiles": list(student_classifier.PROFILES.keys())
+    })
+
+@router.get("/api/student-news")
+def api_get_student_news(category: str = None, profile: str = None, db: Session = Depends(get_db)):
+    """API endpoint to get student news JSON."""
+    _update_student_cache_if_needed(db)
+    articles = _student_news_cache["articles"]
+    if category and category != "All":
+        articles = [a for a in articles if a["category"] == category]
+    if profile:
+        articles = [a for a in articles if profile in a.get("profiles", [])]
+    return {"status": "success", "count": len(articles), "articles": articles}
+
+@router.get("/api/student-trends")
+def api_get_student_trends(db: Session = Depends(get_db)):
+    """API endpoint to get student news trends."""
+    _update_student_cache_if_needed(db)
+    return {"status": "success", "trends": _student_news_cache["trends"]}
+
+import requests
+
+def _fetch_live_scholarships_cache() -> list:
+    """Fetch external scholarships live to prevent 0 counts in the UI."""
+    api_key = settings.GNEWS_API_KEY
+    if not api_key: return []
+    
+    # Highly specific query to enforce India scholarship results
+    query = "scholarship OR fellowship AND student OR application"
+    url = f"https://gnews.io/api/v4/search?q={query}&country=in&lang=en&max=5&apikey={api_key}"
+    
+    results = []
+    try:
+        resp = requests.get(url, timeout=5)
+        if resp.status_code == 200:
+            articles = resp.json().get("articles", [])
+            for article in articles:
+                # Force format it as Student Data
+                student_data = {
+                    "id": 0,
+                    "title": article.get("title", "Live Scholarship"),
+                    "summary": article.get("description", "Opportunity for students."),
+                    "category": "Scholarships & Internships",
+                    "tags": ["#Scholarship", "#LiveOpportunity"],
+                    "profiles": ["General Student"],
+                    "direct_links": [article.get("url", "#")],
+                    "important_dates": ["Check Link"],
+                    "authority": article.get("source", {}).get("name", "Various"),
+                    "urgency": "High",
+                    "trend_score": 95,
+                    "url": article.get("url", "#"),
+                    "source_name": article.get("source", {}).get("name", "GNews"),
+                    "published_at": article.get("publishedAt", datetime.utcnow().isoformat()),
+                    "image_url": article.get("image") or get_fallback_image(article.get("title", ""))
+                }
+                results.append(student_data)
+    except Exception as e:
+        logger.error(f"Live scholarship fetch failed: {e}")
+        
+    return results
+
+def _update_student_cache_if_needed(db: Session, force: bool = False):
+    """Internal helper to process India news into Student structure with caching."""
+    now = datetime.utcnow()
+    # Cache for 15 minutes
+    if not force and _student_news_cache["last_updated"] and (now - _student_news_cache["last_updated"]).total_seconds() < 900:
+        return
+        
+    logger.info("Updating Student News Cache by processing India articles...")
+    
+    # Fetch recent India news (using "in" as the country code in DB)
+    lookback_period = now - timedelta(days=7)
+    raw_articles = db.query(VerifiedNews).filter(
+        VerifiedNews.country == "in",
+        VerifiedNews.created_at >= lookback_period
+    ).order_by(VerifiedNews.created_at.desc()).limit(2000).all()
+    
+    processed_articles = []
+    category_counts = {cat: 0 for cat in student_classifier.CATEGORIES.keys()}
+    category_counts["General Student News"] = 0
+    
+    scholarship_count = 0
+    exam_mentions = {}
+    
+    for article in raw_articles:
+        # Pre-filter using fast string matching to avoid processing entirely unrelated news
+        combined = f"{article.title} {article.content}".lower()
+        if not any(student_keyword in combined for student_keyword in ["student", "exam", "school", "university", "college", "scholarship", "syllabus", "ugc", "cbse", "nta", "placement", "job", "career", "admission"]):
+            continue
+            
+        student_data = student_classifier.process_article(article.title, article.content)
+        if not student_data:
+            continue
+        
+        # Merge with existing article metadata for UI
+        student_data["id"] = article.id
+        student_data["url"] = article.raw_news.url if article.raw_news else "#"
+        student_data["source_name"] = article.raw_news.source_name if article.raw_news else "Unknown"
+        student_data["published_at"] = article.published_at.isoformat() if article.published_at else None
+        student_data["image_url"] = article.raw_news.url_to_image if article.raw_news and article.raw_news.url_to_image else get_fallback_image(article.title)
+        
+        processed_articles.append(student_data)
+        
+        # Track trend stats
+        category_counts[student_data["category"]] += 1
+        if "Scholarship" in student_data["category"]:
+            scholarship_count += 1
+            
+        # Track exams for trends
+        if "Exam" in student_data["category"]:
+            for tag in student_data["tags"]:
+                if tag != "#Exam" and tag != "#CompetitiveExams" and tag != "#BoardExams":
+                    exam_mentions[tag] = exam_mentions.get(tag, 0) + 1
+                    
+    # Inject LIVE scholarships if the DB returned 0
+    if scholarship_count == 0:
+        logger.info("0 scholarships found in DB. Fetching live from external sources...")
+        live_scholarships = _fetch_live_scholarships_cache()
+        for article in live_scholarships:
+            processed_articles.append(article)
+            scholarship_count += 1
+            category_counts["Scholarships & Internships"] += 1
+
+    # Sort by trend score (highest first)
+    processed_articles.sort(key=lambda x: x["trend_score"], reverse=True)
+    
+    # Finalize trends
+    top_exam = max(exam_mentions.items(), key=lambda x: x[1])[0] if exam_mentions else "N/A"
+    
+    # Most discussed topic
+    most_discussed = "N/A"
+    if processed_articles:
+        top_tags = {}
+        ignored_tags = {"#Exam", "#CompetitiveExams", "#BoardExams", "#Education", "#Update", "#News", "#Students", "#Scholarship", "#Job", "#Career", "#StudyAbroad", "#Result"}
+        for a in processed_articles[:20]:
+            for t in a.get("tags", []):
+                if t not in ignored_tags:
+                    top_tags[t] = top_tags.get(t, 0) + 1
+        if top_tags:
+            most_discussed = max(top_tags.items(), key=lambda x: x[1])[0]
+    
+    _student_news_cache["articles"] = processed_articles
+    _student_news_cache["trends"] = {
+        "total_articles": len(processed_articles),
+        "scholarship_count": scholarship_count,
+        "category_counts": category_counts,
+        "most_discussed_topic": most_discussed,
+        "top_trending_exam": top_exam
+    }
+    _student_news_cache["last_updated"] = now
+    logger.info(f"Student Cache updated. Found {len(processed_articles)} relevant articles.")
 
 # --- ADMIN MANAGEMENT API ENDPOINTS ---
 

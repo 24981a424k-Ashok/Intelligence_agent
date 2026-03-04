@@ -9,9 +9,9 @@
     <link
         href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@300;400;600;800&display=swap"
         rel="stylesheet">
-    <link rel="stylesheet" href="/static/style.css?v=4.8">
+    <link rel="stylesheet" href="/static/style.css?v=4.9">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="/static/dashboard.js?v=4.8" defer></script>
+    <script src="/static/dashboard.js?v=4.9" defer></script>
 
     <!-- Firebase SDKs -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
@@ -153,13 +153,16 @@
             <a href="/mock-test" class="nav-link">Mock Test</a>
             <a href="/history" class="nav-link">History</a>
             <a href="#newspaper-section" class="nav-link">Newspaper</a>
+            <a href="/student-news" class="nav-link" style="color: var(--accent-blue); font-weight: 600;">FOR
+                STUDENTS</a>
         </nav>
 
         <div class="header-right" style="display: flex; align-items: center; gap: 1rem;">
             <div class="profile-container" id="profile-trigger" style="border:none; padding:0;">
                 <div class="user-avatar-small">
-                    <img id="user-avatar-img" src="https://ui-avatars.com/api/?background=random&color=fff&name=User"
-                        alt="User">
+                    <img id="user-avatar-img"
+                        src="data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22%23ffffff%22%3E%3Cpath%20d%3D%22M12%2012c2.21%200%204-1.79%204-4s-1.79-4-4-4-4%201.79-4%204%201.79%204%204%204zm0%202c-2.67%200-8%201.34-8%204v2h16v-2c0-2.66-5.33-4-8-4z%22%2F%3E%3C%2Fsvg%3E"
+                        style="background: var(--accent-blue); padding: 4px; border-radius: 50%;" alt="User">
                 </div>
                 <div class="dropdown-menu profile-dropdown-right">
                     <a href="/history" class="dropdown-link">📖 Reading History</a>
