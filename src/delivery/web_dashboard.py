@@ -863,6 +863,15 @@ def student_news_page(request: Request, category: str = None, profile: str = Non
         
     trends = _student_news_cache["trends"]
     
+    firebase_config = {
+        "apiKey": settings.FIREBASE_API_KEY,
+        "authDomain": settings.FIREBASE_AUTH_DOMAIN,
+        "projectId": settings.FIREBASE_PROJECT_ID,
+        "storageBucket": settings.FIREBASE_STORAGE_BUCKET,
+        "messagingSenderId": settings.FIREBASE_MESSAGING_SENDER_ID,
+        "appId": settings.FIREBASE_APP_ID
+    }
+    
     # Render template (which we will create next)
     return templates.TemplateResponse("student_news.html", {
         "request": request,
@@ -871,7 +880,8 @@ def student_news_page(request: Request, category: str = None, profile: str = Non
         "current_category": category or "All",
         "current_profile": profile,
         "categories": list(student_classifier.CATEGORIES.keys()),
-        "profiles": list(student_classifier.PROFILES.keys())
+        "profiles": list(student_classifier.PROFILES.keys()),
+        "firebase_config": firebase_config
     })
 
 @router.get("/api/student-news")
