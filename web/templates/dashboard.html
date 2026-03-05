@@ -709,6 +709,8 @@
             } else {
                 if (logoutBtn) logoutBtn.style.display = 'none';
                 if (loginBtn) loginBtn.style.display = 'block';
+                // Force redirect for unauthenticated users
+                window.location.href = '/';
             }
         });
 
