@@ -11,10 +11,10 @@ class StudentClassifier:
     CATEGORIES = {
         "Education Policy & Govt Updates": ["education policy", "syllabus", "ugc", "cbse", "aicte", "nep 2020", "ministry of education", "school board"],
         "Exams & Results": ["exam date", "results declared", "scorecard", "admit card", "nta", "jee main", "neet ug", "upsc prelims", "cut-off marks", "answer key", "date sheet", "counseling", "mock test", "merit list", "board exams", "entrance exam"],
-        "Scholarships & Internships": ["scholarship", "internship", "fellowship", "stipend", "student grant", "student funding", "financial assistance for students"],
+        "Scholarships & Internships": ["scholarship", "internship", "fellowship", "stipend", "student grant", "student funding", "financial assistance for students", "startup grant", "startup funding"],
         "Career & Placement News": ["campus placement", "fresher hiring", "graduate recruitment", "university placement", "off-campus drive", "fresher vacancy"],
         "Study Abroad Updates": ["student visa", "study abroad", "ielts", "toefl", "gre", "international student", "foreign university", "overseas education"],
-        "AI & Tech for Students": ["student hackathon", "coding competition", "aicte internship", "student bootcamp", "student certification", "campus ambassador"]
+        "AI & Tech for Students": ["student hackathon", "coding competition", "aicte internship", "student bootcamp", "student certification", "campus ambassador", "hackathon"]
     }
 
     PROFILES = {
@@ -36,7 +36,8 @@ class StudentClassifier:
         "university admission", "college admission", "campus placement", "scholarship", 
         "exam result", "admit card", "student visa", "study abroad", "cut-off marks",
         "board exam", "jee main", "neet ug", "education policy", "fellowship", "internship",
-        "syllabus", "ncert", "ugc", "cbse", "nta", "upsc notification", "ssc cgl"
+        "syllabus", "ncert", "ugc", "cbse", "nta", "upsc notification", "ssc cgl",
+        "startup grant", "startup funding", "hackathon", "coding competition"
     ]
     
     def _extract_specific_exam(self, text: str) -> str | None:

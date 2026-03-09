@@ -346,6 +346,7 @@
             <a href="/newspaper" class="nav-link">Newspapers</a>
             <a href="/student-news" class="nav-link" style="color: var(--accent-blue); font-weight: 600;">FOR
                 STUDENTS</a>
+            <a href="/personal-agent" class="nav-link" style="color: var(--accent-purple); font-weight: 600;">PERSONAL AI NEWS</a>
         </div>
     </nav>
 
@@ -380,6 +381,30 @@
 
         <div class="content-layout">
             <aside class="filter-sidebar">
+                <div class="filter-group">
+                    <h3>Region / Country</h3>
+                    <select id="country-filter" style="width: 100%; padding: 0.8rem; background: var(--bg-hover); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 6px; margin-bottom: 0.5rem; font-family: inherit; font-size: 1rem;" onchange="updateCountryFilter()">
+                        <option value="Global" {% if current_country|lower == 'global' %}selected{% endif %}>🌍 Global Opportunities</option>
+                        <option value="India" {% if current_country|lower == 'india' %}selected{% endif %}>🇮🇳 India</option>
+                        <option value="US" {% if current_country|lower == 'us' %}selected{% endif %}>🇺🇸 United States</option>
+                        <option value="UK" {% if current_country|lower == 'uk' %}selected{% endif %}>🇬🇧 United Kingdom</option>
+                        <option value="Australia" {% if current_country|lower == 'australia' %}selected{% endif %}>🇦🇺 Australia</option>
+                        <option value="Canada" {% if current_country|lower == 'canada' %}selected{% endif %}>🇨🇦 Canada</option>
+                        <option value="Japan" {% if current_country|lower == 'japan' %}selected{% endif %}>🇯🇵 Japan</option>
+                        <option value="Germany" {% if current_country|lower == 'germany' %}selected{% endif %}>🇩🇪 Germany</option>
+                        <option value="Singapore" {% if current_country|lower == 'singapore' %}selected{% endif %}>🇸🇬 Singapore</option>
+                    </select>
+                </div>
+                
+                <script>
+                    function updateCountryFilter() {
+                        const country = document.getElementById('country-filter').value;
+                        const urlParams = new URLSearchParams(window.location.search);
+                        urlParams.set('country', country);
+                        window.location.search = urlParams.toString();
+                    }
+                </script>
+
                 <div class="filter-group">
                     <h3>Categories</h3>
                     <a href="/student-news"><button
