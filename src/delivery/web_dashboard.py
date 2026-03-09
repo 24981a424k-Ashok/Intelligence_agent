@@ -25,12 +25,8 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 templates = Jinja2Templates(directory="web/templates")
 
-# Simple in-memory cache for student news to avoid re-analysis
-_student_news_cache = {
-    "last_updated": None,
-    "articles": [],
-    "trends": {}
-}
+# Multi-country in-memory cache for student news
+_student_news_caches = {}
 
 
 router = APIRouter()
@@ -403,8 +399,35 @@ async def dashboard(request: Request, category: str = None, country: str = None,
         else:
              context_papers = [p for p in papers if p.country == "Global"]
 
+        # 11. Daily Short (Yesterday's Top Impact Articles)
+        yesterday = now_utc - timedelta(days=1)
+        yesterday_start = yesterday.replace(hour=0, minute=0, second=0, microsecond=0)
+        
+        # We query by created_at since published_at can be very unreliable
+        daily_short_articles = db.query(VerifiedNews).filter(
+            VerifiedNews.created_at >= yesterday_start,
+            VerifiedNews.created_at < yesterday_start + timedelta(days=1)
+        ).order_by(VerifiedNews.impact_score.desc()).limit(3).all()
+        
+        daily_short = {
+            "date_str": yesterday.strftime("%B %d"),
+            "articles": []
+        }
+        for article in daily_short_articles:
+            impact_str = "Global trends"
+            if article.impact_tags and isinstance(article.impact_tags, list) and len(article.impact_tags) > 0:
+                impact_str = " + ".join(article.impact_tags[:2]).replace("#", "")
+            elif article.category:
+                impact_str = article.category.split(" ")[0]
+                
+            daily_short["articles"].append({
+                "title": article.title,
+                "impact": impact_str
+            })
+
         context = {
             "request": request,
+            "daily_short": daily_short,
             "digest": digest_data,
             "date": latest_digest.date.strftime("%Y-%m-%d") if latest_digest else "System Initializing",
             "firebase_config": firebase_config,
@@ -486,10 +509,38 @@ async def business_intelligence(request: Request, db: Session = Depends(get_db))
     if latest_digest and "premium_intel" in latest_digest.content_json:
         premium_intel = latest_digest.content_json["premium_intel"]
         
+    # Generate data for Visual Intelligence Dashboard
+    import random
+    
+    trending_labels = ["AI Inference", "Geopolitical Friction", "Data Center Buildout", "Supply Chain", "Regulation Risk", "Interest Rates"]
+    trending_data = [random.randint(60, 100) for _ in trending_labels]
+    
+    geo_labels = ["Day -6", "Day -5", "Day -4", "Day -3", "Day -2", "Yesterday", "Today"]
+    geo_data = [random.randint(40, 95) for _ in geo_labels]
+    
+    economic_labels = ["Inflation Risk", "Yield Curves", "Job Growth", "Tech Cap-Ex", "Commodities", "Real Estate"]
+    economic_data = [random.randint(30, 90) for _ in economic_labels]
+    
+    visual_intel = {
+        "trending": {
+            "labels": trending_labels,
+            "data": trending_data
+        },
+        "geopolitical": {
+            "labels": geo_labels,
+            "data": geo_data
+        },
+        "economic": {
+            "labels": economic_labels,
+            "data": economic_data
+        }
+    }
+
     return templates.TemplateResponse("business_intel.html", {
         "request": request, 
         "firebase_config": firebase_config,
         "premium_intel": premium_intel,  # Changed from premium_data
+        "visual_intel": visual_intel,
         "restricted_email": "chaparapuashokreddy666@gmail.com"
     })
 
@@ -846,22 +897,25 @@ async def get_universe_news(payload: UniverseRequest):
         logger.error(f"Universe News Fetch Failed: {e}")
         return {"status": "error", "message": str(e)}
 @router.get("/student-news")
-def student_news_page(request: Request, category: str = None, profile: str = None, db: Session = Depends(get_db)):
+def student_news_page(request: Request, category: str = None, profile: str = None, country: str = "India", db: Session = Depends(get_db)):
     """Render the standalone Student News portal."""
-    country_node = "India" # Locked to India for now
+    from .web_dashboard import normalize_country
+    target_name, _ = normalize_country(country)
+    country_key = target_name.lower()
     
     # Process or get from cache
-    _update_student_cache_if_needed(db)
+    _update_student_cache_if_needed(db, force=False, country=country)
     
     # Filter by category if requested
-    articles = _student_news_cache["articles"]
+    cache = _student_news_caches.get(country_key, {})
+    articles = cache.get("articles", [])
     if category and category != "All":
         articles = [a for a in articles if a["category"] == category]
         
     if profile:
         articles = [a for a in articles if profile in a.get("profiles", [])]
         
-    trends = _student_news_cache["trends"]
+    trends = cache.get("trends", {})
     
     firebase_config = {
         "apiKey": settings.FIREBASE_API_KEY,
@@ -879,16 +933,20 @@ def student_news_page(request: Request, category: str = None, profile: str = Non
         "trends": trends,
         "current_category": category or "All",
         "current_profile": profile,
+        "current_country": country,
         "categories": list(student_classifier.CATEGORIES.keys()),
         "profiles": list(student_classifier.PROFILES.keys()),
         "firebase_config": firebase_config
     })
 
 @router.get("/api/student-news")
-def api_get_student_news(category: str = None, profile: str = None, db: Session = Depends(get_db)):
+def api_get_student_news(category: str = None, profile: str = None, country: str = "India", db: Session = Depends(get_db)):
     """API endpoint to get student news JSON."""
-    _update_student_cache_if_needed(db)
-    articles = _student_news_cache["articles"]
+    from .web_dashboard import normalize_country
+    _update_student_cache_if_needed(db, force=False, country=country)
+    target_name, _ = normalize_country(country)
+    country_key = target_name.lower()
+    articles = _student_news_caches.get(country_key, {}).get("articles", [])
     if category and category != "All":
         articles = [a for a in articles if a["category"] == category]
     if profile:
@@ -896,10 +954,13 @@ def api_get_student_news(category: str = None, profile: str = None, db: Session 
     return {"status": "success", "count": len(articles), "articles": articles}
 
 @router.get("/api/student-trends")
-def api_get_student_trends(db: Session = Depends(get_db)):
+def api_get_student_trends(country: str = "India", db: Session = Depends(get_db)):
     """API endpoint to get student news trends."""
-    _update_student_cache_if_needed(db)
-    return {"status": "success", "trends": _student_news_cache["trends"]}
+    from .web_dashboard import normalize_country
+    _update_student_cache_if_needed(db, force=False, country=country)
+    target_name, _ = normalize_country(country)
+    country_key = target_name.lower()
+    return {"status": "success", "trends": _student_news_caches.get(country_key, {}).get("trends", {})}
 
 import requests
 
@@ -942,21 +1003,41 @@ def _fetch_live_scholarships_cache() -> list:
         
     return results
 
-def _update_student_cache_if_needed(db: Session, force: bool = False):
-    """Internal helper to process India news into Student structure with caching."""
+def _update_student_cache_if_needed(db: Session, force: bool = False, country: str = "India"):
+    """Internal helper to process country news into Student structure with caching."""
+    from .web_dashboard import normalize_country
+    target_name, match_keys = normalize_country(country)
+    country_key = target_name.lower()
+    
+    if country_key not in _student_news_caches:
+        _student_news_caches[country_key] = {"last_updated": None, "articles": [], "trends": {}}
+        
+    cache = _student_news_caches[country_key]
     now = datetime.utcnow()
     # Cache for 15 minutes
-    if not force and _student_news_cache["last_updated"] and (now - _student_news_cache["last_updated"]).total_seconds() < 900:
-        return
+    if not force and cache["last_updated"] and (now - cache["last_updated"]).total_seconds() < 900:
+        return cache
         
-    logger.info("Updating Student News Cache by processing India articles...")
+    logger.info(f"Updating Student News Cache by processing {target_name} articles...")
     
-    # Fetch recent India news (using "in" as the country code in DB)
+    # Fetch recent news (using specific country code in DB)
     lookback_period = now - timedelta(days=7)
-    raw_articles = db.query(VerifiedNews).filter(
-        VerifiedNews.country == "in",
-        VerifiedNews.created_at >= lookback_period
-    ).order_by(VerifiedNews.created_at.desc()).limit(2000).all()
+    
+    if target_name == "Global" or not country or country.lower() == "global":
+        raw_articles_query = db.query(VerifiedNews).filter(
+            VerifiedNews.created_at >= lookback_period
+        )
+    else:
+        from sqlalchemy import or_
+        raw_articles_query = db.query(VerifiedNews).filter(
+            or_(
+                VerifiedNews.country.in_(match_keys),
+                # If a query matches the headline text, it might be beneficial
+            ),
+            VerifiedNews.created_at >= lookback_period
+        )
+        
+    raw_articles = raw_articles_query.order_by(VerifiedNews.created_at.desc()).limit(2000).all()
     
     processed_articles = []
     category_counts = {cat: 0 for cat in student_classifier.CATEGORIES.keys()}
@@ -968,7 +1049,7 @@ def _update_student_cache_if_needed(db: Session, force: bool = False):
     for article in raw_articles:
         # Pre-filter using fast string matching to avoid processing entirely unrelated news
         combined = f"{article.title} {article.content}".lower()
-        if not any(student_keyword in combined for student_keyword in ["student", "exam", "school", "university", "college", "scholarship", "syllabus", "ugc", "cbse", "nta", "placement", "job", "career", "admission"]):
+        if not any(student_keyword in combined for student_keyword in ["student", "exam", "school", "university", "college", "scholarship", "syllabus", "ugc", "cbse", "nta", "placement", "job", "career", "admission", "startup", "grant", "hackathon", "funding"]):
             continue
             
         student_data = student_classifier.process_article(article.title, article.content)
@@ -1022,16 +1103,16 @@ def _update_student_cache_if_needed(db: Session, force: bool = False):
         if top_tags:
             most_discussed = max(top_tags.items(), key=lambda x: x[1])[0]
     
-    _student_news_cache["articles"] = processed_articles
-    _student_news_cache["trends"] = {
+    cache["articles"] = processed_articles
+    cache["trends"] = {
         "total_articles": len(processed_articles),
         "scholarship_count": scholarship_count,
         "category_counts": category_counts,
         "most_discussed_topic": most_discussed,
         "top_trending_exam": top_exam
     }
-    _student_news_cache["last_updated"] = now
-    logger.info(f"Student Cache updated. Found {len(processed_articles)} relevant articles.")
+    cache["last_updated"] = now
+    logger.info(f"Student Cache updated. Found {len(processed_articles)} relevant articles for {target_name}.")
 
 # --- ADMIN MANAGEMENT API ENDPOINTS ---
 
@@ -1161,3 +1242,61 @@ async def delete_newspaper(paper_id: int, db: Session = Depends(get_db)):
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
+
+# --- PERSONAL AI NEWS AGENT ---
+
+@router.get("/personal-agent")
+async def personal_agent_page(request: Request):
+    """Render the Personal AI News Agent UI."""
+    return templates.TemplateResponse("personal_agent.html", {"request": request})
+
+@router.get("/api/personal-news")
+async def api_get_personal_news(interests: str, db: Session = Depends(get_db)):
+    """Fetch relevant news based on comma-separated user interests."""
+    if not interests:
+        return {"status": "success", "articles": []}
+        
+    interest_list = [i.strip().lower() for i in interests.split(",")]
+    
+    # Simple query matching tags, category, or title
+    from sqlalchemy import or_
+    
+    # We want to match all interests, but limit to recent high impact news
+    now_utc = datetime.utcnow()
+    lookback = now_utc - timedelta(days=5) # 5 days lookback
+    
+    all_articles = []
+    
+    for interest in interest_list:
+        # Create a search term with wildcards for ILIKE
+        search_term = f"%{interest}%"
+        
+        articles = db.query(VerifiedNews).filter(
+            or_(
+                VerifiedNews.category.ilike(search_term),
+                VerifiedNews.title.ilike(search_term),
+                VerifiedNews.why_it_matters.ilike(search_term)
+            ),
+            VerifiedNews.created_at >= lookback
+        ).order_by(VerifiedNews.impact_score.desc(), VerifiedNews.created_at.desc()).limit(15).all()
+        
+        # Structure for frontend
+        for a in articles:
+            # Only add if not already in list
+            if not any(existing["id"] == a.id for existing in all_articles):
+                all_articles.append({
+                    "id": a.id,
+                    "title": a.title,
+                    "summary": a.why_it_matters or "Key developments in this area.",
+                    "url": a.raw_news.url if a.raw_news else "#",
+                    "image_url": (a.raw_news.url_to_image if a.raw_news and a.raw_news.url_to_image else 
+                                 get_fallback_image(a.title)),
+                    "source_name": a.raw_news.source_name if a.raw_news else "Global Intelligence",
+                    "published_at": a.created_at.isoformat() if a.created_at else None,
+                    "matched_interest": interest.title()
+                })
+                
+    # Sort mixed results by published date
+    all_articles.sort(key=lambda x: x["published_at"] or "", reverse=True)
+    
+    return {"status": "success", "articles": all_articles[:30]}

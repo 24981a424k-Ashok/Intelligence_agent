@@ -155,6 +155,7 @@
             <a href="#newspaper-section" class="nav-link">Newspaper</a>
             <a href="/student-news" class="nav-link" style="color: var(--accent-blue); font-weight: 600;">FOR
                 STUDENTS</a>
+            <a href="/personal-agent" class="nav-link" style="color: var(--accent-purple); font-weight: 600;">PERSONAL AI NEWS</a>
         </nav>
 
         <div class="header-right" style="display: flex; align-items: center; gap: 1rem;">
@@ -414,6 +415,28 @@
             <button class="see-more-btn" onclick="toggleSeeMore(this, '.intel-card')">See More</button>
             {% endif %}
         </section>
+
+        <!-- DAILY SHORT (Yesterday's Intel) -->
+        {% if daily_short and daily_short.articles and not selected_category and not selected_country %}
+        <section class="daily-short-section" style="margin-bottom: 3rem;">
+            <div style="background: linear-gradient(135deg, rgba(30,41,59,0.9), rgba(15,23,42,0.95)); border: 1px solid var(--accent-gold); border-radius: 12px; padding: 1.5rem 2rem;">
+                <h2 style="color: var(--accent-gold); margin-top: 0; margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.5rem; font-size: 1.5rem; border-bottom: 1px solid rgba(251,191,36,0.2); padding-bottom: 0.5rem;">
+                    🌍 Global Intelligence – {{ daily_short.date_str }}
+                </h2>
+                
+                <div style="display: flex; flex-direction: column; gap: 1.25rem;">
+                    {% for item in daily_short.articles %}
+                    <div style="background: rgba(0,0,0,0.2); padding: 1rem 1.5rem; border-left: 3px solid var(--accent-blue); border-radius: 4px;">
+                        <h4 style="margin: 0 0 0.5rem 0; font-size: 1.1rem; color: #fff;">{{ loop.index }}️⃣ {{ item.title }}</h4>
+                        <div style="color: var(--text-secondary); font-size: 0.9rem; display: flex; align-items: center; gap: 0.5rem;">
+                            <span style="color: var(--accent-green); font-weight: 600;">Impact:</span> {{ item.impact }}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </section>
+        {% endif %}
 
         <!-- 6. 60-SECOND BRIEF (Content Block 4) -->
         {% if digest.brief and not selected_category %}
