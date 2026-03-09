@@ -22,11 +22,7 @@
   "crons": [
     {
       "path": "/api/cron/process-news",
-      "schedule": "*/15 * * * *"
-    },
-    {
-      "path": "/api/cron/process-news",
-      "schedule": "30 6 * * *"
+      "schedule": "0 0 * * *"
     }
   ]
 }
