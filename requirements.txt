@@ -9,7 +9,8 @@ tweepy>=4.14.0
 # LLM & Embeddings
 openai>=1.0.0
 sentence-transformers>=2.2.2
-torch>=2.0.0
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch>=2.0.0+cpu
 firebase-admin>=6.2.0
 
 
