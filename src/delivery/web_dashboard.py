@@ -98,10 +98,16 @@ def normalize_country(c):
     if not c: return None, []
     mapping = {
         "jp": "Japan", "us": "USA", "in": "India", "gb": "UK",
-        "ru": "Russia", "de": "Germany", "fr": "France", "sg": "Singapore"
+        "ru": "Russia", "de": "Germany", "fr": "France", "sg": "Singapore",
+        "au": "Australia", "ca": "Canada", "ae": "UAE", "de": "Germany"
     }
     # Reverse mapping: "India" -> "in"
     rev_mapping = {v.lower(): k for k, v in mapping.items()}
+    rev_mapping["america"] = "us"
+    rev_mapping["united states"] = "us"
+    rev_mapping["united kingdom"] = "gb"
+    rev_mapping["russia"] = "ru"
+    rev_mapping["uae"] = "ae"
     
     val = c.lower().strip()
     # Find canonical name
@@ -129,17 +135,19 @@ def get_db():
     finally:
         db.close()
 
+# Define FIREBASE_CLIENT_CONFIG globally
+FIREBASE_CLIENT_CONFIG = {
+    "apiKey": settings.FIREBASE_API_KEY,
+    "authDomain": settings.FIREBASE_AUTH_DOMAIN,
+    "projectId": settings.FIREBASE_PROJECT_ID,
+    "storageBucket": settings.FIREBASE_STORAGE_BUCKET,
+    "messagingSenderId": settings.FIREBASE_MESSAGING_SENDER_ID,
+    "appId": settings.FIREBASE_APP_ID
+}
+
 @router.get("/")
 async def landing_page(request: Request):
-    firebase_config = {
-        "apiKey": settings.FIREBASE_API_KEY,
-        "authDomain": settings.FIREBASE_AUTH_DOMAIN,
-        "projectId": settings.FIREBASE_PROJECT_ID,
-        "storageBucket": settings.FIREBASE_STORAGE_BUCKET,
-        "messagingSenderId": settings.FIREBASE_MESSAGING_SENDER_ID,
-        "appId": settings.FIREBASE_APP_ID
-    }
-    return templates.TemplateResponse("login.html", {"request": request, "firebase_config": firebase_config})
+    return templates.TemplateResponse("login.html", {"request": request, "firebase_config": FIREBASE_CLIENT_CONFIG})
 
 @router.get("/dashboard")
 async def dashboard(request: Request, category: str = None, country: str = None, lang: str = 'english', db: Session = Depends(get_db)):
@@ -223,9 +231,9 @@ async def dashboard(request: Request, category: str = None, country: str = None,
             "system_status_msg": system_status
         }
         
-        # 5.B Freshness Filter (8 Hour Limit)
+        # 5.B Freshness Filter (2 Hour Limit for high recency)
         now_utc = datetime.utcnow()
-        eight_hours_ago = now_utc - timedelta(hours=8)
+        two_hours_ago = now_utc - timedelta(hours=2)
         
         def is_fresh(item):
             # Try to parse published_at if it exists
@@ -233,7 +241,7 @@ async def dashboard(request: Request, category: str = None, country: str = None,
             if pub:
                 try:
                     p_time = datetime.fromisoformat(pub.replace("Z", "+00:00"))
-                    return p_time > eight_hours_ago
+                    return p_time > two_hours_ago
                 except: return True
             return True
 
@@ -370,15 +378,6 @@ async def dashboard(request: Request, category: str = None, country: str = None,
                             seed = f"{item.get('title', '')}{idx}"
                             item["image_url"] = get_fallback_image(seed)
 
-        firebase_config = {
-            "apiKey": settings.FIREBASE_API_KEY,
-            "authDomain": settings.FIREBASE_AUTH_DOMAIN,
-            "projectId": settings.FIREBASE_PROJECT_ID,
-            "storageBucket": settings.FIREBASE_STORAGE_BUCKET,
-            "messagingSenderId": settings.FIREBASE_MESSAGING_SENDER_ID,
-            "appId": settings.FIREBASE_APP_ID
-        }
-
         # 10. Filter Newspapers by country (Guarantee Minimum 4)
         if country:
              # Normalize selected country name for newspaper matching
@@ -400,6 +399,7 @@ async def dashboard(request: Request, category: str = None, country: str = None,
              context_papers = [p for p in papers if p.country == "Global"]
 
         # 11. Daily Short (Yesterday's Top Impact Articles)
+        now_utc = datetime.utcnow() # Re-fetch or ensure it's current
         yesterday = now_utc - timedelta(days=1)
         yesterday_start = yesterday.replace(hour=0, minute=0, second=0, microsecond=0)
         
@@ -430,7 +430,7 @@ async def dashboard(request: Request, category: str = None, country: str = None,
             "daily_short": daily_short,
             "digest": digest_data,
             "date": latest_digest.date.strftime("%Y-%m-%d") if latest_digest else "System Initializing",
-            "firebase_config": firebase_config,
+            "firebase_config": FIREBASE_CLIENT_CONFIG,
             "left_ads": left_ads,
             "right_ads": right_ads,
             "mobile_ads": mobile_ads,
@@ -455,51 +455,19 @@ async def dashboard(request: Request, category: str = None, country: str = None,
 
 @router.get("/saved")
 async def saved_page(request: Request):
-    firebase_config = {
-        "apiKey": settings.FIREBASE_API_KEY,
-        "authDomain": settings.FIREBASE_AUTH_DOMAIN,
-        "projectId": settings.FIREBASE_PROJECT_ID,
-        "storageBucket": settings.FIREBASE_STORAGE_BUCKET,
-        "messagingSenderId": settings.FIREBASE_MESSAGING_SENDER_ID,
-        "appId": settings.FIREBASE_APP_ID
-    }
-    return templates.TemplateResponse("saved.html", {"request": request, "firebase_config": firebase_config})
+    return templates.TemplateResponse("saved.html", {"request": request, "firebase_config": FIREBASE_CLIENT_CONFIG})
 
 @router.get("/history")
 async def history(request: Request):
-    firebase_config = {
-        "apiKey": settings.FIREBASE_API_KEY,
-        "authDomain": settings.FIREBASE_AUTH_DOMAIN,
-        "projectId": settings.FIREBASE_PROJECT_ID,
-        "storageBucket": settings.FIREBASE_STORAGE_BUCKET,
-        "messagingSenderId": settings.FIREBASE_MESSAGING_SENDER_ID,
-        "appId": settings.FIREBASE_APP_ID
-    }
-    return templates.TemplateResponse("history.html", {"request": request, "firebase_config": firebase_config})
+    return templates.TemplateResponse("history.html", {"request": request, "firebase_config": FIREBASE_CLIENT_CONFIG})
 
 @router.get("/newspaper")
 async def newspaper(request: Request):
-    firebase_config = {
-        "apiKey": settings.FIREBASE_API_KEY,
-        "authDomain": settings.FIREBASE_AUTH_DOMAIN,
-        "projectId": settings.FIREBASE_PROJECT_ID,
-        "storageBucket": settings.FIREBASE_STORAGE_BUCKET,
-        "messagingSenderId": settings.FIREBASE_MESSAGING_SENDER_ID,
-        "appId": settings.FIREBASE_APP_ID
-    }
-    return templates.TemplateResponse("newspaper.html", {"request": request, "firebase_config": firebase_config})
+    return templates.TemplateResponse("newspaper.html", {"request": request, "firebase_config": FIREBASE_CLIENT_CONFIG})
 
 @router.get("/business-intelligence")
 async def business_intelligence(request: Request, db: Session = Depends(get_db)):
     # This route is restricted
-    firebase_config = {
-        "apiKey": settings.FIREBASE_API_KEY,
-        "authDomain": settings.FIREBASE_AUTH_DOMAIN,
-        "projectId": settings.FIREBASE_PROJECT_ID,
-        "storageBucket": settings.FIREBASE_STORAGE_BUCKET,
-        "messagingSenderId": settings.FIREBASE_MESSAGING_SENDER_ID,
-        "appId": settings.FIREBASE_APP_ID
-    }
     
     # The actual enforcement happens client-side via Firebase for UX, 
     # but we will also pass the data only if we find a valid digest.
@@ -538,11 +506,29 @@ async def business_intelligence(request: Request, db: Session = Depends(get_db))
 
     return templates.TemplateResponse("business_intel.html", {
         "request": request, 
-        "firebase_config": firebase_config,
+        "firebase_config": FIREBASE_CLIENT_CONFIG,
         "premium_intel": premium_intel,  # Changed from premium_data
         "visual_intel": visual_intel,
         "restricted_email": "chaparapuashokreddy666@gmail.com"
     })
+
+@router.get("/personal-agent")
+async def personal_agent_page(request: Request):
+    db = SessionLocal()
+    try:
+        # Fetch all unique categories from VerifiedNews for interest selection
+        categories_raw = db.query(VerifiedNews.category).distinct().all()
+        categories = [c[0] for c in categories_raw if c[0]]
+        if not categories:
+            categories = ["Technology", "AI", "Business", "Sports", "Politics", "World"]
+        
+        return templates.TemplateResponse("personal_agent.html", {
+            "request": request, 
+            "firebase_config": FIREBASE_CLIENT_CONFIG,
+            "available_interests": sorted(categories)
+        })
+    finally:
+        db.close()
 
 @router.get("/api/article/{article_id}")
 async def get_article_detail(article_id: int, db: Session = Depends(get_db)):
