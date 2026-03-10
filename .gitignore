@@ -54,3 +54,8 @@ deployment_log.txt
 Thumbs.db
 v e n v /  
  . v e n v /  
+node_modules/
+.cache/
+.npm/
+package-lock.json
+
