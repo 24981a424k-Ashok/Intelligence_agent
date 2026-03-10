@@ -97,6 +97,7 @@
             margin: 0 0 1rem 0;
             background: linear-gradient(135deg, #fff 0%, #cbd5e1 100%);
             -webkit-background-clip: text;
+            background-clip: text;
             -webkit-text-fill-color: transparent;
         }
 
@@ -264,11 +265,19 @@
             border: 1px dashed var(--border-color);
             border-radius: 16px;
             grid-column: 1 / -1;
-            display: none;
+            display: block;
+        }
+
+        /* Mobile Responsive */
+        @media (max-width: 768px) {
+            h1 { font-size: 2rem; }
+            .nav-links { display: none; }
+            .interest-pill { padding: 0.6rem 1.2rem; font-size: 0.8rem; }
         }
 
     </style>
 </head>
+
 <body>
     <nav class="navbar">
         <a href="/dashboard" class="brand">
@@ -278,7 +287,7 @@
         <div class="nav-links">
             <a href="/dashboard">Global Intelligence</a>
             <a href="/student-news">For Students</a>
-            <a href="/personal-agent" class="active">Personal AI News Agent</a>
+            <a href="/personal-agent" class="active">Personal AI Agent</a>
             <a href="/business-intelligence">Analyst Reports</a>
         </div>
     </nav>
@@ -286,15 +295,13 @@
     <div class="main-container">
         <div class="header-section">
             <h1>Personal AI News Agent</h1>
-            <p class="subtitle">Select your topics of interest below to generate a hyper-personalized, continuously updated intelligence feed driven by AI.</p>
+            <p class="subtitle">Select your topics of interest below to generate a hyper-personalized, continuously updated intelligence feed driven by AI. (Syncs every 15 min)</p>
         </div>
 
         <div class="interest-selector" id="interest-selector">
-            <div class="interest-pill" data-interest="AI">🤖 Artificial Intelligence</div>
-            <div class="interest-pill" data-interest="Startups">🚀 Startups & VC</div>
-            <div class="interest-pill" data-interest="Finance">💰 Global Finance</div>
-            <div class="interest-pill" data-interest="India Politics">🇮🇳 India Politics</div>
-            <div class="interest-pill" data-interest="Space">🌌 Space Tech</div>
+            {% for interest in available_interests %}
+            <div class="interest-pill" data-interest="{{ interest }}" onclick="toggleInterest(this)">{{ interest }}</div>
+            {% endfor %}
         </div>
 
         <div class="news-grid" id="news-grid">
@@ -314,28 +321,21 @@
 
     <script>
         const selectedInterests = new Set();
-        const pills = document.querySelectorAll('.interest-pill');
         const newsGrid = document.getElementById('news-grid');
         const loadingState = document.getElementById('loading-state');
         const emptyState = document.getElementById('empty-state');
 
-        // Check for pre-selected topics in URL or local storage if needed. 
-        // For now, default start empty.
-        updateUI();
-
-        pills.forEach(pill => {
-            pill.addEventListener('click', () => {
-                const interest = pill.dataset.interest;
-                if (selectedInterests.has(interest)) {
-                    selectedInterests.delete(interest);
-                    pill.classList.remove('active');
-                } else {
-                    selectedInterests.add(interest);
-                    pill.classList.add('active');
-                }
-                fetchPersonalNews();
-            });
-        });
+        function toggleInterest(el) {
+            const interest = el.dataset.interest;
+            if (selectedInterests.has(interest)) {
+                selectedInterests.delete(interest);
+                el.classList.remove('active');
+            } else {
+                selectedInterests.add(interest);
+                el.classList.add('active');
+            }
+            fetchPersonalNews();
+        }
 
         async function fetchPersonalNews() {
             if (selectedInterests.size === 0) {
@@ -345,7 +345,6 @@
             }
 
             emptyState.style.display = 'none';
-            newsGrid.innerHTML = '';
             loadingState.style.display = 'block';
 
             const interestsArray = Array.from(selectedInterests);
@@ -359,7 +358,7 @@
 
                 if (data.status === 'success' && data.articles.length > 0) {
                     renderArticles(data.articles);
-                } else {
+                } else if (!newsGrid.children.length) {
                     newsGrid.innerHTML = `
                         <div class="empty-state" style="display:block;">
                             <h3>No Recent News Found</h3>
@@ -370,7 +369,6 @@
             } catch (error) {
                 console.error("Failed to fetch news:", error);
                 loadingState.style.display = 'none';
-                newsGrid.innerHTML = `<p style="color: #ef4444; grid-column: 1/-1; text-align: center;">Error connecting to Intel feed. Please try again.</p>`;
             }
         }
 
@@ -393,11 +391,13 @@
             `).join('');
         }
 
-        function updateUI() {
-            if (selectedInterests.size === 0) {
-                emptyState.style.display = 'block';
+        // Auto-refresh every 15 minutes (900000 ms)
+        setInterval(() => {
+            if (selectedInterests.size > 0) {
+                console.log("Refreshing personal intelligence feed...");
+                fetchPersonalNews();
             }
-        }
+        }, 900000);
     </script>
 </body>
 </html>
