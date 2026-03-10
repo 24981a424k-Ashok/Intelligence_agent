@@ -318,13 +318,28 @@ async def dashboard(request: Request, category: str = None, country: str = None,
                             if (item.get("country") in match_keys) or (item.get("country_name") in match_keys)
                         ]
             
-            # India Translation
-            if selected_country_name == "India" and lang and lang.lower() != 'english':
+            # Global Node Translation
+            # Map country name to target language
+            country_langs = {
+                "India": "hindi", # Or other regional if needed, but Hindi is common fallback
+                "Japan": "japanese",
+                "Russia": "russian",
+                "Germany": "german",
+                "France": "french",
+                "UAE": "arabic",
+                "Singapore": "chinese",
+                "China": "chinese"
+            }
+            
+            target_lang = lang if (lang and lang.lower() != 'english') else country_langs.get(selected_country_name)
+            
+            if selected_country_name in country_langs and target_lang and target_lang.lower() != 'english':
+                logger.info(f"Translating node {selected_country_name} to {target_lang}")
                 sections_to_translate = ["top_stories", "breaking_news", "trending_news", "brief"]
                 for section in sections_to_translate:
                     if section in digest_data:
-                        digest_data[section] = translator.translate_stories(digest_data[section], lang)
-                trending_title = translator.translate_text(trending_title, lang)
+                        digest_data[section] = translator.translate_stories(digest_data[section], target_lang)
+                trending_title = translator.translate_text(trending_title, target_lang)
 
         # 7. Category Logic
         elif category and digest_data:
@@ -422,7 +437,8 @@ async def dashboard(request: Request, category: str = None, country: str = None,
                 
             daily_short["articles"].append({
                 "title": article.title,
-                "impact": impact_str
+                "impact": impact_str,
+                "image_url": article.image_url or (article.raw_news.url_to_image if article.raw_news else None) or get_fallback_image(article.title)
             })
 
         context = {
