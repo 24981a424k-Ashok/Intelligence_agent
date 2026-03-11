@@ -438,7 +438,7 @@ async def dashboard(request: Request, category: str = None, country: str = None,
             daily_short["articles"].append({
                 "title": article.title,
                 "impact": impact_str,
-                "image_url": article.image_url or (article.raw_news.url_to_image if article.raw_news else None) or get_fallback_image(article.title)
+                "image_url": getattr(article, "image_url", None) or (article.raw_news.url_to_image if article.raw_news else None) or get_fallback_image(article.title)
             })
 
         context = {

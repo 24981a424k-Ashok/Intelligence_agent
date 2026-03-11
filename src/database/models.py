@@ -58,6 +58,13 @@ class VerifiedNews(Base):
     
     raw_news = relationship("RawNews")
 
+    @property
+    def image_url(self) -> Optional[str]:
+        """Backward compatibility for templates and logic expecting image_url attribute."""
+        if self.raw_news and self.raw_news.url_to_image:
+            return self.raw_news.url_to_image
+        return None
+
     def to_dict(self):
         return {
             "id": self.id,
