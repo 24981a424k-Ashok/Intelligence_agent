@@ -414,16 +414,13 @@ async def dashboard(request: Request, category: str = None, country: str = None,
         else:
              context_papers = [p for p in papers if p.country == "Global"]
 
-        # 11. Daily Short (Yesterday's Top Impact Articles)
-        now_utc = datetime.utcnow() # Re-fetch or ensure it's current
-        yesterday = now_utc - timedelta(days=1)
-        yesterday_start = yesterday.replace(hour=0, minute=0, second=0, microsecond=0)
+        # 11. Daily Short (Last 48 Hours Top Impact)
+        yesterday_start = now_utc - timedelta(hours=48)
         
         # We query by created_at since published_at can be very unreliable
         daily_short_articles = db.query(VerifiedNews).filter(
-            VerifiedNews.created_at >= yesterday_start,
-            VerifiedNews.created_at < yesterday_start + timedelta(days=1)
-        ).order_by(VerifiedNews.impact_score.desc()).limit(3).all()
+            VerifiedNews.created_at >= yesterday_start
+        ).order_by(VerifiedNews.impact_score.desc()).limit(8).all()
         
         daily_short = {
             "date_str": yesterday.strftime("%B %d"),
@@ -1054,7 +1051,7 @@ def _update_student_cache_if_needed(db: Session, force: bool = False, country: s
         # Pre-filter using fast string matching to avoid processing entirely unrelated news
         combined = f"{article.title} {article.content}".lower()
         # Relaxed pre-filter: catch more educational and student-relevant content
-        student_keywords = ["student", "exam", "school", "university", "college", "scholarship", "syllabus", "ugc", "cbse", "nta", "placement", "job", "career", "admission", "startup", "grant", "hackathon", "funding", "education", "learning", "degree", "diploma", "research", "campus", "internship", "hiring", "recruitment", "youth", "academic", "tuition", "entrance", "vacancy", "intern", "campus", "test", "result", "admit", "coaching", "training"]
+        student_keywords = ["student", "exam", "school", "university", "college", "scholarship", "syllabus", "ugc", "cbse", "nta", "placement", "job", "career", "admission", "startup", "grant", "hackathon", "funding", "education", "learning", "degree", "diploma", "research", "campus", "internship", "hiring", "recruitment", "youth", "academic", "tuition", "entrance", "vacancy", "intern", "campus", "test", "result", "admit", "coaching", "training", "fresher", "neet", "jee", "upsc", "ssc", "board exam", "admit card"]
         if not any(kw in combined for kw in student_keywords):
             continue
             
@@ -1407,8 +1404,8 @@ async def api_search_news(
     db: Session = Depends(get_db)
 ):
     offset = (page - 1) * 12
-    # Time filter: Try 7 days first for high relevance
-    lookback = datetime.utcnow() - timedelta(days=7)
+    # Time filter: Try 14 days first to ensure "endless" feel
+    lookback = datetime.utcnow() - timedelta(days=14)
     query = db.query(VerifiedNews).filter(VerifiedNews.created_at >= lookback)
     
     if q:

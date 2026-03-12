@@ -4,10 +4,10 @@ from src.analysis.student_classifier import StudentClassifier
 
 db = SessionLocal()
 now = datetime.utcnow()
-twenty_four_hours_ago = now - timedelta(hours=48) # Let's check 48 hours just in case
+twenty_four_hours_ago = now - timedelta(days=30) # Check 30 days
 
 raw_articles = db.query(VerifiedNews).filter(
-    VerifiedNews.country == "India",
+    VerifiedNews.country == "in",
     VerifiedNews.created_at >= twenty_four_hours_ago
 ).all()
 
@@ -24,7 +24,7 @@ for article in raw_articles:
     if any(k in combined for k in student_keywords):
         passed_prefilter += 1
         data = classifier.process_article(article.title, article.content)
-        if data["category"] != "General Student News":
+        if data and data["category"] != "General Student News":
             passed_classifier += 1
             print(f"MATCH: {article.title} -> {data['category']}")
 

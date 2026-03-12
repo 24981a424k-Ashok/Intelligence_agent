@@ -40,7 +40,8 @@ class StudentClassifier:
         "syllabus", "ncert", "ugc", "cbse", "nta", "upsc notification", "ssc cgl",
         "startup grant", "startup funding", "hackathon", "coding competition",
         "educational", "learning", "academic", "placement drive", "hiring fresher",
-        "recruitment drive", "campus hiring"
+        "recruitment drive", "campus hiring", "student achievement", "campus life",
+        "exam update", "university news", "school news", "career guide"
     ]
     
     def _extract_specific_exam(self, text: str) -> str | None:
