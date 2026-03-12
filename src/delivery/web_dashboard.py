@@ -415,6 +415,8 @@ async def dashboard(request: Request, category: str = None, country: str = None,
              context_papers = [p for p in papers if p.country == "Global"]
 
         # 11. Daily Short (Last 48 Hours Top Impact)
+        now_utc = datetime.utcnow()
+        yesterday = now_utc - timedelta(days=1)
         yesterday_start = now_utc - timedelta(hours=48)
         
         # We query by created_at since published_at can be very unreliable
