@@ -1024,7 +1024,8 @@ def _update_student_cache_if_needed(db: Session, force: bool = False, country: s
     logger.info(f"Updating Student News Cache by processing {target_name} articles...")
     
     # Fetch recent news (using specific country code in DB)
-    lookback_period = now - timedelta(days=7)
+    # Relax lookback to 30 days to ensure we have content
+    lookback_period = now - timedelta(days=30)
     
     if target_name == "Global" or not country or country.lower() == "global":
         raw_articles_query = db.query(VerifiedNews).filter(
@@ -1052,7 +1053,8 @@ def _update_student_cache_if_needed(db: Session, force: bool = False, country: s
     for article in raw_articles:
         # Pre-filter using fast string matching to avoid processing entirely unrelated news
         combined = f"{article.title} {article.content}".lower()
-        if not any(student_keyword in combined for student_keyword in ["student", "exam", "school", "university", "college", "scholarship", "syllabus", "ugc", "cbse", "nta", "placement", "job", "career", "admission", "startup", "grant", "hackathon", "funding", "education", "learning", "degree", "diploma", "research", "campus", "internship", "hiring", "recruitment", "youth"]):
+        # Relaxed pre-filter: catch more educational and student-relevant content
+        if not any(kw in combined for kw in ["student", "exam", "school", "university", "college", "scholarship", "syllabus", "ugc", "cbse", "nta", "placement", "job", "career", "admission", "startup", "grant", "hackathon", "funding", "education", "learning", "degree", "diploma", "research", "campus", "internship", "hiring", "recruitment", "youth", "academic", "tuition", "entrance", "vacancy", "intern", "campus"]):
             continue
             
         student_data = student_classifier.process_article(article.title, article.content)

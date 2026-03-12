@@ -331,6 +331,26 @@
                 position: static;
             }
         }
+        .chat-btn-student {
+            background: var(--accent-blue);
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-top: 1rem;
+            transition: transform 0.2s, opacity 0.2s;
+        }
+
+        .chat-btn-student:hover {
+            transform: translateY(-2px);
+            opacity: 0.9;
+        }
     </style>
 </head>
 
@@ -484,12 +504,22 @@
                                 </div>
                             </div>
                             {% if article.direct_links %}
-                            <div style="margin-top: 1rem;">
+                            <div style="margin-top: 1rem; display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center;">
                                 {% for link in article.direct_links %}
                                 <a href="{{ link }}" target="_blank" onclick="event.stopPropagation()"
-                                    style="display: inline-block; padding: 0.4rem 0.8rem; background: var(--accent-blue); color: white; text-decoration: none; border-radius: 6px; font-size: 0.75rem; font-weight: 600; margin-right: 0.5rem; transition: background 0.2s;">Access
-                                    Link</a>
+                                    style="display: inline-block; padding: 0.5rem 1rem; background: var(--accent-blue); color: white; text-decoration: none; border-radius: 6px; font-size: 0.8rem; font-weight: 700; transition: background 0.2s;">Access Article</a>
                                 {% endfor %}
+                                <button class="chat-btn-student" data-id="{{ article.id }}" data-title="{{ article.title }}" onclick="event.stopPropagation(); handleMiniChat(this)">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                                    Chat with AI
+                                </button>
+                            </div>
+                            {% else %}
+                            <div style="margin-top: 1rem;">
+                                <button class="chat-btn-student" data-id="{{ article.id }}" data-title="{{ article.title }}" onclick="event.stopPropagation(); handleMiniChat(this)">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                                    Chat with AI
+                                </button>
                             </div>
                             {% endif %}
                         </div>
@@ -519,6 +549,31 @@
                 window.location.href = '/';
             }
         });
+    </script>
+    <script>
+        function handleMiniChat(btn) {
+            const id = btn.dataset.id;
+            const title = btn.dataset.title;
+            openMiniChat(id, title);
+        }
+
+        async function openMiniChat(articleId, title) {
+            const query = prompt(`Chat with AI about: "${title}"\nWhat would you like to know?`);
+            if (!query) return;
+
+            try {
+                const response = await fetch('/api/chat-article', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ article_id: articleId, query: query })
+                });
+                const data = await response.json();
+                alert(`AI Response:\n\n${data.response}`);
+            } catch (error) {
+                console.error("Chat failed:", error);
+                alert("Communication with AI Node failed.");
+            }
+        }
     </script>
 </body>
 
