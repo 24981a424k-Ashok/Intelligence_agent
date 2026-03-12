@@ -294,8 +294,19 @@
 
     <div class="main-container">
         <div class="header-section">
-            <h1>Personal AI News Agent</h1>
-            <p class="subtitle">Select your topics of interest below to generate a hyper-personalized, continuously updated intelligence feed driven by AI. (Syncs every 15 min)</p>
+            <div style="display:flex; flex-direction:column; align-items:center; gap:1.5rem; margin-bottom:1rem;">
+                <h1 style="margin-bottom:0;">Personal AI News Agent</h1>
+                <div id="search-container" style="width:100%; display:flex; justify-content:center;">
+                    <div style="position:relative; width:90%; max-width:600px;">
+                        <span style="position:absolute; left:1.2rem; top:50%; transform:translateY(-50%); color:var(--text-secondary);">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                        </span>
+                        <input type="text" id="news-search" placeholder="Search topics (e.g. OpenAI, Bitcoin, EV Market)..." 
+                               style="width:100%; background:var(--bg-dark); border:2px solid var(--accent-purple); color:white; padding:1.2rem 1.2rem 1.2rem 3.5rem; border-radius:40px; font-size:1.1rem; box-shadow:0 10px 25px rgba(0,0,0,0.3); transition:var(--transition);">
+                    </div>
+                </div>
+            </div>
+            <p class="subtitle">Select your topics of interest below or search to generate a hyper-personalized, continuously updated intelligence feed driven by AI.</p>
         </div>
 
         <div class="interest-selector" id="interest-selector">
@@ -324,6 +335,27 @@
         const newsGrid = document.getElementById('news-grid');
         const loadingState = document.getElementById('loading-state');
         const emptyState = document.getElementById('empty-state');
+        const searchInput = document.getElementById('news-search');
+        
+        let currentPage = 1;
+        let isBatchLoading = false;
+        let hasMore = true;
+        let observer = null;
+
+
+        searchInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                resetAndFetch();
+            }
+        });
+
+        function resetAndFetch() {
+            newsGrid.innerHTML = '';
+            currentPage = 1;
+            hasMore = true;
+            fetchPersonalNews();
+        }
 
         function toggleInterest(el) {
             const interest = el.dataset.interest;
@@ -334,49 +366,64 @@
                 selectedInterests.add(interest);
                 el.classList.add('active');
             }
-            fetchPersonalNews();
+            resetAndFetch();
         }
 
         async function fetchPersonalNews() {
-            if (selectedInterests.size === 0) {
+            const query = searchInput.value.trim();
+            if (selectedInterests.size === 0 && !query) {
                 newsGrid.innerHTML = '';
                 emptyState.style.display = 'block';
+                loadingState.style.display = 'none';
                 return;
             }
 
+            if (isBatchLoading || !hasMore) return;
+
             emptyState.style.display = 'none';
             loadingState.style.display = 'block';
+            isBatchLoading = true;
 
             const interestsArray = Array.from(selectedInterests);
-            const queryParam = encodeURIComponent(interestsArray.join(','));
-
+            const interestsParam = interestsArray.join(',');
+            
             try {
-                const response = await fetch(`/api/personal-news?interests=${queryParam}`);
+                const url = `/api/search-news?q=${encodeURIComponent(query)}&interests=${encodeURIComponent(interestsParam)}&page=${currentPage}`;
+                const response = await fetch(url);
                 const data = await response.json();
 
                 loadingState.style.display = 'none';
+                isBatchLoading = false;
 
                 if (data.status === 'success' && data.articles.length > 0) {
                     renderArticles(data.articles);
+                    hasMore = data.has_more;
+                    currentPage++;
+                    setupInfiniteScroll();
                 } else if (!newsGrid.children.length) {
                     newsGrid.innerHTML = `
-                        <div class="empty-state" style="display:block;">
-                            <h3>No Recent News Found</h3>
-                            <p style="color: var(--text-secondary); margin-top: 0.5rem;">We couldn't find breaking news for these exact topics in the last 48 hours.</p>
+                        <div class="empty-state" style="display:block; width:100%; grid-column:1/-1;">
+                            <h3>No Intelligence Found</h3>
+                            <p style="color: var(--text-secondary); margin-top: 0.5rem;">We couldn't find matching reports in the active nodes. Try broad terms.</p>
                         </div>
                     `;
+                    hasMore = false;
                 }
             } catch (error) {
                 console.error("Failed to fetch news:", error);
                 loadingState.style.display = 'none';
+                isBatchLoading = false;
             }
         }
 
         function renderArticles(articles) {
-            newsGrid.innerHTML = articles.map(article => `
-                <div class="news-card" onclick="window.open('${article.url}', '_blank')">
+            articles.forEach(article => {
+                const card = document.createElement('div');
+                card.className = 'news-card fade-in';
+                card.onclick = () => window.open(article.url, '_blank');
+                card.innerHTML = `
                     <div class="card-image-container">
-                        <div class="card-tag">${article.matched_interest}</div>
+                        <div class="card-tag">${article.matched_interest || 'Intelligence'}</div>
                         <img src="${article.image_url}" alt="Cover" class="card-image" onerror="this.src='https://images.unsplash.com/photo-1504711434969-e33886168f5c?q=80&w=1000'">
                     </div>
                     <div class="card-content">
@@ -384,18 +431,45 @@
                         <p class="card-summary">${article.summary}</p>
                         <div class="card-footer">
                             <span>${article.source_name || 'Intelligence Node'}</span>
-                            <span>${article.published_at ? new Date(article.published_at).toLocaleDateString() : 'Recent'}</span>
+                            <span>${getTimeAgo(article.published_at)}</span>
                         </div>
                     </div>
-                </div>
-            `).join('');
+                `;
+                newsGrid.appendChild(card);
+            });
         }
 
-        // Auto-refresh every 15 minutes (900000 ms)
+        function getTimeAgo(dateStr) {
+            if (!dateStr) return 'Recent';
+            const past = new Date(dateStr);
+            const now = new Date();
+            const diffInMs = now - past;
+            const diffInMins = Math.floor(diffInMs / (1000 * 60));
+            
+            if (diffInMins < 60) return `${diffInMins} min ago`;
+            const diffInHours = Math.floor(diffInMins / 60);
+            if (diffInHours < 24) return `${diffInHours} hours ago`;
+            return past.toLocaleDateString();
+        }
+
+        function setupInfiniteScroll() {
+            if (observer) observer.disconnect();
+            
+            observer = new IntersectionObserver((entries) => {
+                if (entries[0].isIntersecting && hasMore && !isBatchLoading) {
+                    fetchPersonalNews();
+                }
+            }, { threshold: 0.1, rootMargin: '200px' });
+
+            if (newsGrid.lastElementChild) {
+                observer.observe(newsGrid.lastElementChild);
+            }
+        }
+
+        // Auto-refresh every 15 minutes
         setInterval(() => {
-            if (selectedInterests.size > 0) {
-                console.log("Refreshing personal intelligence feed...");
-                fetchPersonalNews();
+            if (selectedInterests.size > 0 && currentPage === 1) {
+                resetAndFetch();
             }
         }, 900000);
     </script>

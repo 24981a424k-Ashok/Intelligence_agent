@@ -53,6 +53,9 @@ class VerifiedNews(Base):
     long_term_impact = Column(Text, nullable=True)
     sentiment = Column(String)
     
+    is_fake = Column(Boolean, default=False)
+    flag_count = Column(Integer, default=0)
+    
     published_at = Column(DateTime)
     created_at = Column(DateTime, default=datetime.utcnow)
     
@@ -64,6 +67,20 @@ class VerifiedNews(Base):
         if self.raw_news and self.raw_news.url_to_image:
             return self.raw_news.url_to_image
         return None
+
+    @property
+    def url(self) -> str:
+        """Helper to access the source URL."""
+        if self.raw_news:
+            return self.raw_news.url
+        return "#"
+
+    @property
+    def source_name(self) -> str:
+        """Helper to access the source name."""
+        if self.raw_news:
+            return self.raw_news.source_name
+        return "Unknown"
 
     def to_dict(self):
         return {
@@ -104,6 +121,7 @@ class User(Base):
     email = Column(String, nullable=True)
     phone = Column(String, nullable=True)
     push_token = Column(String, nullable=True)
+    bounty_points = Column(Integer, default=0)
     created_at = Column(DateTime, default=datetime.utcnow)
     
     subscriptions = relationship("Subscription", back_populates="user")
@@ -153,6 +171,18 @@ class ReadHistory(Base):
     read_at = Column(DateTime, default=datetime.utcnow)
 
     user = relationship("User", back_populates="read_history")
+    news = relationship("VerifiedNews")
+
+class FlaggedArticle(Base):
+    __tablename__ = "flagged_articles"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    news_id = Column(Integer, ForeignKey("verified_news.id"))
+    reason = Column(String, nullable=True)
+    flagged_at = Column(DateTime, default=datetime.utcnow)
+
+    user = relationship("User")
     news = relationship("VerifiedNews")
 
 class BreakingNews(Base):

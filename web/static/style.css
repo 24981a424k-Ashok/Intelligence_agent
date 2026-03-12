@@ -2070,6 +2070,30 @@ header {
     box-shadow: 0 8px 20px rgba(59, 130, 246, 0.4);
 }
 
+.chat-btn-modal {
+    background: linear-gradient(135deg, var(--accent-green), #059669);
+    color: white;
+    border: none;
+}
+
+.chat-btn-modal:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(52, 168, 83, 0.4);
+}
+
+.report-btn-modal {
+    background: transparent;
+    border: 1px solid rgba(234, 67, 53, 0.3);
+    color: var(--accent-red);
+    font-size: 0.75rem;
+    padding: 0.75rem;
+}
+
+.report-btn-modal:hover {
+    background: rgba(234, 67, 53, 0.1);
+    border-color: var(--accent-red);
+}
+
 /* Responsive Modal */
 @media (max-width: 768px) {
     .modal-grid {
@@ -2088,4 +2112,59 @@ header {
     .modal-overlay {
         padding: 1rem;
     }
+}
+/* Floating Action Button (FAB) for Modal */
+.modal-fab {
+    position: absolute;
+    bottom: 2rem;
+    right: 2rem;
+    background: linear-gradient(135deg, #10b981, #059669);
+    color: white;
+    border: none;
+    padding: 0.8rem 1.5rem;
+    border-radius: 50px;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    box-shadow: 0 10px 25px rgba(16, 185, 129, 0.4);
+    cursor: pointer;
+    z-index: 1000;
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.modal-fab:hover {
+    transform: scale(1.05) translateY(-5px);
+    box-shadow: 0 15px 30px rgba(16, 185, 129, 0.6);
+}
+
+.fab-icon {
+    font-size: 1.2rem;
+}
+
+.fab-text {
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+/* Card Chat Button */
+.card-chat-btn {
+    background: rgba(16, 185, 129, 0.1);
+    border: 1px solid rgba(16, 185, 129, 0.2);
+    color: #10b981;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.card-chat-btn:hover {
+    background: #10b981;
+    color: white;
+    transform: scale(1.1);
 }

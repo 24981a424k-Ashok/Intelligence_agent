@@ -1,11 +1,13 @@
 import os
-import logging
+from loguru import logger
 import copy
 from datetime import datetime, timedelta
 from fastapi import APIRouter, Request, Depends, HTTPException, BackgroundTasks
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
-from src.database.models import SessionLocal, DailyDigest, User, VerifiedNews, Subscription
+from src.database.models import SessionLocal, DailyDigest, User, VerifiedNews, Subscription, \
+    FlaggedArticle, RawNews, Advertisement, Newspaper
+from sqlalchemy import or_
 from src.config import settings
 from src.config.firebase_config import verify_token
 from src.analysis.chat_engine import NewsChatEngine
@@ -20,7 +22,7 @@ chat_engine = NewsChatEngine()
 universe_collector = UniverseCollector()
 translator = NewsTranslator()
 student_classifier = StudentClassifier()
-logger = logging.getLogger(__name__)
+# logger = logging.getLogger(__name__)
 
 router = APIRouter()
 templates = Jinja2Templates(directory="web/templates")
@@ -196,7 +198,6 @@ async def dashboard(request: Request, category: str = None, country: str = None,
             latest_digest = db.query(DailyDigest).filter(DailyDigest.is_published == True).order_by(DailyDigest.date.desc()).first()
 
         # 4. Diagnostics & Status
-        from src.database.models import RawNews, VerifiedNews, Advertisement, Newspaper
         raw_count = db.query(RawNews).count()
         verified_count = db.query(VerifiedNews).count()
         
@@ -1051,7 +1052,7 @@ def _update_student_cache_if_needed(db: Session, force: bool = False, country: s
     for article in raw_articles:
         # Pre-filter using fast string matching to avoid processing entirely unrelated news
         combined = f"{article.title} {article.content}".lower()
-        if not any(student_keyword in combined for student_keyword in ["student", "exam", "school", "university", "college", "scholarship", "syllabus", "ugc", "cbse", "nta", "placement", "job", "career", "admission", "startup", "grant", "hackathon", "funding"]):
+        if not any(student_keyword in combined for student_keyword in ["student", "exam", "school", "university", "college", "scholarship", "syllabus", "ugc", "cbse", "nta", "placement", "job", "career", "admission", "startup", "grant", "hackathon", "funding", "education", "learning", "degree", "diploma", "research", "campus", "internship", "hiring", "recruitment", "youth"]):
             continue
             
         student_data = student_classifier.process_article(article.title, article.content)
@@ -1250,7 +1251,19 @@ async def delete_newspaper(paper_id: int, db: Session = Depends(get_db)):
 @router.get("/personal-agent")
 async def personal_agent_page(request: Request):
     """Render the Personal AI News Agent UI."""
-    return templates.TemplateResponse("personal_agent.html", {"request": request})
+    from src.analysis.llm_analyzer import LLMAnalyzer
+    analyzer = LLMAnalyzer()
+    # Get categories from the mock analyzer's logic or DB
+    available_interests = [
+        "AI & Machine Learning", "Business & Economy", "Defense & Security",
+        "Education", "Entertainment", "Environment & Climate", "General",
+        "India / Local News", "Lifestyle & Wellness", "Other News", "Politics",
+        "Science & Health", "Sports", "Technology", "Twitter 𝕏", "World News"
+    ]
+    return templates.TemplateResponse("personal_agent.html", {
+        "request": request, 
+        "available_interests": available_interests
+    })
 
 @router.get("/api/personal-news")
 async def api_get_personal_news(interests: str, db: Session = Depends(get_db)):
@@ -1302,3 +1315,123 @@ async def api_get_personal_news(interests: str, db: Session = Depends(get_db)):
     all_articles.sort(key=lambda x: x["published_at"] or "", reverse=True)
     
     return {"status": "success", "articles": all_articles[:30]}
+
+@router.post("/api/chat-article")
+async def api_chat_article(request: Request, db: Session = Depends(get_db)):
+    data = await request.json()
+    article_id = data.get("article_id")
+    query = data.get("query")
+    
+    if not article_id or not query:
+        raise HTTPException(status_code=400, detail="Missing article_id or query")
+    
+    chat_engine = NewsChatEngine()
+    response = chat_engine.chat_with_article(db, article_id, query)
+    return {"response": response}
+
+@router.post("/api/flag-article")
+async def api_flag_article(request: Request, db: Session = Depends(get_db)):
+    data = await request.json()
+    firebase_uid = data.get("firebase_uid")
+    news_id = data.get("news_id")
+    reason = data.get("reason", "Reported by user")
+    
+    user = db.query(User).filter(User.firebase_uid == firebase_uid).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Check if already flagged by this user
+    existing = db.query(FlaggedArticle).filter(
+        FlaggedArticle.user_id == user.id,
+        FlaggedArticle.news_id == news_id
+    ).first()
+    
+    if existing:
+        return {"status": "already_flagged", "message": "You have already flagged this article."}
+    
+    # Create flag record
+    flag = FlaggedArticle(user_id=user.id, news_id=news_id, reason=reason)
+    db.add(flag)
+    
+    # Update article flag count
+    article = db.query(VerifiedNews).filter(VerifiedNews.id == news_id).first()
+    if article:
+        article.flag_count += 1
+        db.commit() # Save flag count first
+        
+        # Trigger AI verification if flagged first time
+        if article.flag_count == 1:
+            from src.analysis.llm_analyzer import LLMAnalyzer
+            analyzer = LLMAnalyzer()
+            result = await analyzer.verify_news_factcheck(article.title, article.content or "")
+            if result.get("is_fake"):
+                article.is_fake = True
+                # Award bounty points to the first reporter
+                user.bounty_points += 50
+                db.commit()
+                return {"status": "success", "message": "Fake news verified! 50 Bounty Points awarded.", "points": user.bounty_points}
+    
+    db.commit()
+    return {"status": "success", "message": "Report submitted. Our AI is verifying."}
+
+@router.get("/api/geopolitics-prediction")
+async def api_get_prediction(db: Session = Depends(get_db)):
+    # Get top 10 recent headlines for context
+    trends = db.query(VerifiedNews.title).order_by(VerifiedNews.created_at.desc()).limit(10).all()
+    trend_list = [t[0] for t in trends]
+    
+    from src.analysis.llm_analyzer import LLMAnalyzer
+    analyzer = LLMAnalyzer()
+    prediction = await analyzer.generate_geopolitical_prediction(trend_list)
+    return prediction
+
+@router.get("/api/search-news")
+async def api_search_news(
+    q: str = "", 
+    page: int = 1, 
+    interests: str = None, 
+    db: Session = Depends(get_db)
+):
+    offset = (page - 1) * 12
+    query = db.query(VerifiedNews)
+    
+    if q:
+        query = query.filter(
+            or_(
+                VerifiedNews.title.ilike(f"%{q}%"),
+                VerifiedNews.why_it_matters.ilike(f"%{q}%")
+            )
+        )
+    
+    if interests:
+        interest_list = [i.strip() for i in interests.split(',')]
+        # More robust matching: handle both exact and partial
+        filters = []
+        for i in interest_list:
+            # Case-insensitive partial match for category
+            filters.append(VerifiedNews.category.ilike(f"%{i}%"))
+            # If it's "Defense & Security", also try "Defense" 
+            if " & " in i:
+                parts = i.split(" & ")
+                for p in parts:
+                    if len(p) > 3:
+                        filters.append(VerifiedNews.category.ilike(f"%{p}%"))
+        
+        query = query.filter(or_(*filters))
+        
+    articles = query.order_by(VerifiedNews.impact_score.desc(), VerifiedNews.created_at.desc()).offset(offset).limit(12).all()
+    
+    return {
+        "status": "success",
+        "articles": [{
+            "id": a.id,
+            "title": a.title,
+            "summary": a.summary_bullets[:200] if a.summary_bullets else "",
+            "url": a.url,
+            "image_url": a.image_url or "https://images.unsplash.com/photo-1504711434969-e33886168f5c?q=80&w=1000",
+            "source_name": a.source_name,
+            "published_at": a.created_at.isoformat() if a.created_at else None,
+            "matched_interest": a.category
+        } for a in articles],
+        "has_more": len(articles) == 12
+    }

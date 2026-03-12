@@ -6,7 +6,8 @@ from src.analysis.llm_analyzer import LLMAnalyzer
 import openai
 from src.config.settings import OPENAI_API_KEY
 
-logger = logging.getLogger(__name__)
+from loguru import logger
+# logger = logging.getLogger(__name__)
 
 class NewsChatEngine:
     def __init__(self):
@@ -74,6 +75,54 @@ class NewsChatEngine:
         except Exception as e:
             logger.error(f"Chat failed: {e}")
             return self._mock_response(query, results)
+
+    def chat_with_article(self, session: Session, article_id: int, query: str) -> str:
+        """
+        Focused chat about a single article.
+        """
+        if not self.client:
+            return "I'm sorry, I cannot answer questions right now as no AI API key is configured."
+
+        article = session.query(VerifiedNews).filter(VerifiedNews.id == article_id).first()
+        if not article:
+            return "I couldn't find the article you're referring to."
+
+        context = f"""
+        Title: {article.title}
+        Summary: {article.summary_bullets}
+        Why it matters: {article.why_it_matters}
+        Who is affected: {article.who_is_affected}
+        Full Content: {article.content[:4000]}
+        """
+
+        system_prompt = """
+        You are an AI News Analyst. 
+        Answer the user's question explicitly based on the provided article context.
+        If the information is not present, say so.
+        Be concise, professional, and helpful.
+        """
+
+        user_prompt = f"Article Context:\n{context}\n\nUser Question: {query}"
+
+        try:
+            # Check for mock mode
+            if not self.api_key or self.api_key.startswith("your_"):
+                return f"Based on the article '{article.title}', here is a simulated response to your question: '{query}'. (Real-time AI is in mock mode)."
+
+            response = self.client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt}
+                ],
+                temperature=0.3
+            )
+            return response.choices[0].message.content
+        except Exception as e:
+            logger.error(f"Article chat failed: {e}")
+            if "quota" in str(e).lower() or "429" in str(e):
+                return "The AI Analysis node has reached its usage limit for today. Please try again tomorrow or upgrade your plan."
+            return f"I encountered an error while processing your request. Please try again later."
 
     def _mock_response(self, query: str, results: List[VerifiedNews]) -> str:
         """

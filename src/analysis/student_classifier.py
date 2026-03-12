@@ -9,19 +9,20 @@ class StudentClassifier:
     """
     
     CATEGORIES = {
-        "Education Policy & Govt Updates": ["education policy", "syllabus", "ugc", "cbse", "aicte", "nep 2020", "ministry of education", "school board"],
-        "Exams & Results": ["exam date", "results declared", "scorecard", "admit card", "nta", "jee main", "neet ug", "upsc prelims", "cut-off marks", "answer key", "date sheet", "counseling", "mock test", "merit list", "board exams", "entrance exam"],
-        "Scholarships & Internships": ["scholarship", "internship", "fellowship", "stipend", "student grant", "student funding", "financial assistance for students", "startup grant", "startup funding"],
-        "Career & Placement News": ["campus placement", "fresher hiring", "graduate recruitment", "university placement", "off-campus drive", "fresher vacancy"],
-        "Study Abroad Updates": ["student visa", "study abroad", "ielts", "toefl", "gre", "international student", "foreign university", "overseas education"],
-        "AI & Tech for Students": ["student hackathon", "coding competition", "aicte internship", "student bootcamp", "student certification", "campus ambassador", "hackathon"]
+        "Education Policy & Govt Updates": ["education policy", "syllabus", "ugc", "cbse", "aicte", "nep 2020", "ministry of education", "school board", "educational reform", "government school", "higher education"],
+        "Exams & Results": ["exam date", "results declared", "scorecard", "admit card", "nta", "jee main", "neet ug", "upsc prelims", "cut-off marks", "answer key", "date sheet", "counseling", "mock test", "merit list", "board exams", "entrance exam", "examination", "test result", "passing marks"],
+        "Scholarships & Internships": ["scholarship", "internship", "fellowship", "stipend", "student grant", "student funding", "financial assistance for students", "startup grant", "startup funding", "training program", "summer internship"],
+        "Career & Placement News": ["campus placement", "fresher hiring", "graduate recruitment", "university placement", "off-campus drive", "fresher vacancy", "job for students", "career fair", "recruitment drive", "employment news"],
+        "Study Abroad Updates": ["student visa", "study abroad", "ielts", "toefl", "gre", "international student", "foreign university", "overseas education", "visa news", "emigration for study"],
+        "AI & Tech for Students": ["student hackathon", "coding competition", "aicte internship", "student bootcamp", "student certification", "campus ambassador", "hackathon", "robotics", "tech fest", "coding challenge"]
     }
 
     PROFILES = {
-        "School Student (10th/12th)": ["cbse", "ncert", "class 10", "class 12", "board exam", "icse", "state board"],
-        "Engineering Aspirant": ["jee", "b.tech", "engineering entrance", "gate exam", "iit", "nit", "bitsat", "josaa"],
-        "Medical Aspirant": ["neet", "mbbs admission", "aiims", "bds", "pharmacy entrance", "ayush counseling", "jipmer", "pgimer"],
-        "Govt Job Aspirant": ["upsc notification", "ssc cgl", "bank po entrance", "rrb ntpc", "ibps po", "nda exam", "cds notification", "civil services prelims", "sbi po", "state psc"]
+        "School Student (10th/12th)": ["cbse", "ncert", "class 10", "class 12", "board exam", "icse", "state board", "school student", "secondary education"],
+        "Engineering Aspirant": ["jee", "b.tech", "engineering entrance", "gate exam", "iit", "nit", "bitsat", "josaa", "engineering student", "iitian"],
+        "Medical Aspirant": ["neet", "mbbs admission", "aiims", "bds", "pharmacy entrance", "ayush counseling", "jipmer", "pgimer", "medical student"],
+        "Govt Job Aspirant": ["upsc notification", "ssc cgl", "bank po entrance", "rrb ntpc", "ibps po", "nda exam", "cds notification", "civil services prelims", "sbi po", "state psc", "government job", "employment news"],
+        "Graduate/Techie": ["fresher", "placement", "startup", "coding", "software engineer", "developer", "internship", "graduation"]
     }
 
     AUTHORITIES = ["UGC", "CBSE", "AICTE", "NTA", "UPSC", "SSC", "Ministry of Education", "State Board", "University Grants Commission"]
@@ -37,7 +38,9 @@ class StudentClassifier:
         "exam result", "admit card", "student visa", "study abroad", "cut-off marks",
         "board exam", "jee main", "neet ug", "education policy", "fellowship", "internship",
         "syllabus", "ncert", "ugc", "cbse", "nta", "upsc notification", "ssc cgl",
-        "startup grant", "startup funding", "hackathon", "coding competition"
+        "startup grant", "startup funding", "hackathon", "coding competition",
+        "educational", "learning", "academic", "placement drive", "hiring fresher",
+        "recruitment drive", "campus hiring"
     ]
     
     def _extract_specific_exam(self, text: str) -> str | None:

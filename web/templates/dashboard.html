@@ -344,6 +344,38 @@
         </section>
         {% endif %}
 
+        <!-- GEOPOLITICAL PREDICTION: AI CRYSTAL BALL -->
+        <section class="prediction-section fade-in" style="margin-bottom: 4rem;">
+            <div style="background: linear-gradient(135deg, #1e1b4b, #312e81); border: 1px solid var(--accent-purple); border-radius: var(--radius-xl); padding: 2.5rem; position: relative; overflow: hidden;">
+                <div style="position: absolute; top: -50px; right: -50px; width: 200px; height: 200px; background:radial-gradient(circle, rgba(139, 92, 246, 0.2), transparent); filter: blur(40px);"></div>
+                
+                <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem;">
+                    <div style="font-size: 2.5rem;">🔮</div>
+                    <div>
+                        <h2 style="margin: 0; font-family: var(--font-display); color: white; font-size: 1.8rem; letter-spacing: 0.05em;">AI CRYSTAL BALL</h2>
+                        <span style="color: var(--accent-gold); font-size: 0.8rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em;">Strategic Geopolitical Prediction</span>
+                    </div>
+                </div>
+
+                <div id="prediction-content">
+                    <div style="display: flex; flex-direction: column; gap: 1rem;">
+                        <h3 id="prediction-headline" style="color: white; margin: 0; font-size: 1.4rem;">Analyzing global sentiment trends...</h3>
+                        <p id="prediction-text" style="color: var(--text-secondary); line-height: 1.6; margin: 0;">Our AI models are processing recent developments across Global Intelligence Nodes to project future outcomes.</p>
+                        <div style="display: flex; gap: 2rem; margin-top: 1rem; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 1.5rem;">
+                            <div>
+                                <span style="display: block; color: var(--text-muted); font-size: 0.7rem; font-weight: 700; text-transform: uppercase; margin-bottom: 0.5rem;">Market Impact</span>
+                                <span id="prediction-market" style="color: var(--accent-green); font-weight: 600;">Evaluating...</span>
+                            </div>
+                            <div>
+                                <span style="display: block; color: var(--text-muted); font-size: 0.7rem; font-weight: 700; text-transform: uppercase; margin-bottom: 0.5rem;">Confidence Level</span>
+                                <span id="prediction-confidence" style="color: var(--accent-gold); font-weight: 600;">Calculating...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
         <!-- 5. TOP 10 HEADLINES (Content Block 3) -->
         <section class="top-headlines" id="top-headlines">
             <div class="content-header">
@@ -685,10 +717,22 @@
                             <a id="modal-source-link" href="#" target="_blank" class="modal-btn source-btn">
                                 🌐 VISIT ORIGINAL SOURCE
                             </a>
+                            <button class="modal-btn chat-btn-modal" onclick="sendChatMessage()">
+                                💬 Chat with News
+                            </button>
+                            <button class="modal-btn report-btn-modal" onclick="flagFakeNews()">
+                                🚩 Fact-Check Bounty (Report Fake)
+                            </button>
+                        </div>
                         </div>
                     </div>
                 </div>
             </div>
+            <!-- Floating Action Button for Chat -->
+            <button class="modal-fab chat-fab" onclick="sendChatMessage()" title="Chat with AI about this news">
+                <span class="fab-icon">💬</span>
+                <span class="fab-text">Chat with News</span>
+            </button>
         </div>
     </div>
 

@@ -1,13 +1,13 @@
 import os
 import json
-import logging
+from loguru import logger
 import asyncio
 from datetime import datetime
 from typing import List, Dict, Any
 import openai
 from src.config.settings import OPENAI_API_KEY
 
-logger = logging.getLogger(__name__)
+# logger = logging.getLogger(__name__) # Removed standard logging
 
 class LLMAnalyzer:
     def __init__(self):
@@ -428,3 +428,89 @@ IMPORTANT: Output ONLY valid JSON.
             "long_term_impact": f"Strategic re-alignment and fundamental shifts within the {category} ecosystem.",
             "sentiment": "Neutral"
         }
+
+    async def verify_news_factcheck(self, article_title: str, article_content: str) -> Dict[str, Any]:
+        """
+        Verify if a news story is likely fake or highly biased.
+        """
+        if not self.api_key:
+            return {"is_fake": False, "confidence": 0.5, "reason": "No API key for verification."}
+
+        prompt = f"""
+        Fact-Check this News:
+        Title: {article_title}
+        Content: {article_content[:3000]}
+
+        Analyze for:
+        1. Hallucinated facts or logical inconsistencies.
+        2. Satirical or hyper-partisan markers.
+        3. Alignment with mainstream reports.
+
+        Output ONLY JSON:
+        {{
+            "is_fake": boolean,
+            "confidence": float (0-1),
+            "reason": string (concise explanation)
+        }}
+        """
+        try:
+            from openai import AsyncOpenAI
+            client = AsyncOpenAI(api_key=self.api_key)
+            response = await client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[{"role": "system", "content": "You are a professional fact-checker."}, {"role": "user", "content": prompt}],
+                temperature=0.1
+            )
+            data = json.loads(response.choices[0].message.content)
+            await client.close()
+            return data
+        except Exception as e:
+            logger.error(f"Fact-check failed: {e}")
+            return {"is_fake": False, "confidence": 0.0, "reason": "System error during verification."}
+
+    async def generate_geopolitical_prediction(self, trends: List[str]) -> Dict[str, Any]:
+        """
+        Generate a 'Crystal Ball' prediction based on current trends.
+        """
+        if not self.api_key:
+            return {
+                "headline": "Stable Outlook", 
+                "prediction_text": "No data available for AI prediction.",
+                "market_impact": "Neutral / Systematic",
+                "confidence_level": "Low (Mock)"
+            }
+
+        prompt = f"""
+        Act as a Geopolitical Strategist AI.
+        Based on these current news trends: {', '.join(trends)}
+
+        Predict a likely market shift or election outcome in the next 3-6 months.
+        Provide a bold but grounded 'Crystal Ball' prediction.
+
+        Output ONLY JSON:
+        {{
+            "headline": "Bold Prediction Headline",
+            "prediction_text": "Detailed analysis",
+            "market_impact": "How it affects markets",
+            "confidence_level": "High/Medium/Low"
+        }}
+        """
+        try:
+            from openai import AsyncOpenAI
+            client = AsyncOpenAI(api_key=self.api_key)
+            response = await client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.7
+            )
+            data = json.loads(response.choices[0].message.content)
+            await client.close()
+            return data
+        except Exception as e:
+            logger.error(f"Prediction failed: {e}")
+            return {
+                "headline": "Intelligence Node Offline", 
+                "prediction_text": "Unable to generate prediction right now.",
+                "market_impact": "Wait for reconnect...",
+                "confidence_level": "N/A"
+            }

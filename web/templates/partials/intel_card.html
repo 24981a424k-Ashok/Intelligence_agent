@@ -67,8 +67,9 @@
         <p style="font-size:0.9rem; color:var(--text-secondary);">{{ story.why }}</p>
     </div>
 
-    <div class="intel-footer">
-        <span style="font-size:0.8rem; color:var(--text-secondary);">AI Analysis • {{ story.time_ago
-            or
-            'Just Now' }}</span>
+    <div class="intel-footer" style="display:flex; justify-content:space-between; align-items:center;">
+        <span style="font-size:0.8rem; color:var(--text-secondary);">AI Analysis • {{ story.time_ago or 'Just Now' }}</span>
+        <button class="card-chat-btn" onclick="openChatFromCard(event, '{{ story.id }}')" title="Quick Chat">
+            💬
+        </button>
     </div>

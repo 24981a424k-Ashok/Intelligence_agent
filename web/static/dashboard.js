@@ -602,6 +602,82 @@ function closeArticleModal() {
         document.body.style.overflow = '';
     }
     currentModalArticleId = null;
+    document.getElementById('chat-history').innerHTML = '';
+    document.getElementById('chat-input').value = '';
+}
+
+async function fetchGeopoliticalPrediction() {
+    const headlineEl = document.getElementById('prediction-headline');
+    const textEl = document.getElementById('prediction-text');
+    const marketEl = document.getElementById('prediction-market');
+    const confEl = document.getElementById('prediction-confidence');
+
+    if (!headlineEl) return;
+
+    try {
+        const res = await fetch('/api/geopolitics-prediction');
+        const data = await res.json();
+        
+        headlineEl.innerText = data.headline;
+        textEl.innerText = data.prediction_text;
+        marketEl.innerText = data.market_impact;
+        confEl.innerText = data.confidence_level;
+        confEl.style.color = data.confidence_level === 'High' ? 'var(--accent-green)' : 'var(--accent-gold)';
+    } catch (e) {
+        console.error("Prediction fetch failed", e);
+    }
+}
+
+async function sendChatMessage() {
+    if (!currentModalArticleId) return;
+    
+    const query = prompt("What would you like to know about this intelligence artifact?");
+    if (!query) return;
+
+    try {
+        const res = await fetch('/api/chat-article', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                article_id: currentModalArticleId,
+                query: query
+            })
+        });
+        const data = await res.json();
+        alert("AI Response: " + data.response);
+    } catch (e) {
+        console.error("Chat failed", e);
+        alert("Communication with AI Node failed.");
+    }
+}
+
+async function flagFakeNews() {
+    if (!currentModalArticleId) return;
+
+    const user = firebase.auth().currentUser;
+    if (!user) {
+        alert("Identification required to report. Please login.");
+        return;
+    }
+
+    if (!confirm("Are you sure you want to flag this intelligence as potentially fake? Our AI will perform a deep verification.")) return;
+
+    try {
+        const res = await fetch('/api/flag-article', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                firebase_uid: user.uid,
+                news_id: parseInt(currentModalArticleId),
+                reason: "Reported via Dashboard"
+            })
+        });
+        const data = await res.json();
+        alert(data.message);
+    } catch (e) {
+        console.error("Flagging failed", e);
+        alert("Network error. Could not submit report.");
+    }
 }
 
 async function saveArticleModal() {
@@ -693,6 +769,7 @@ document.addEventListener('DOMContentLoaded', function () {
     initializeSeeMore();
     initializeThemeToggle();
     initializeBreakingNewsRefresh();
+    fetchGeopoliticalPrediction();
 
     console.log('Dashboard enhancements initialized v4.1');
 });
@@ -831,4 +908,12 @@ document.addEventListener('DOMContentLoaded', () => {
     initializeTicker();
     initializeWeather();
     if (window.initializeSeeMore) window.initializeSeeMore();
+    
+    // Initialize AI Crystal Ball
+    fetchGeopoliticalPrediction();
 });
+function openChatFromCard(event, id) {
+    if (event) event.stopPropagation();
+    currentModalArticleId = id;
+    sendChatMessage();
+}
