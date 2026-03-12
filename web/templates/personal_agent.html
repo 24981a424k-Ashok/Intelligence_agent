@@ -468,7 +468,7 @@
                                 <span>${getTimeAgo(article.published_at)}</span>
                             </div>
                             <div class="card-actions">
-                                <button class="action-btn chat-btn" onclick="openMiniChat('${article.id}', '${article.title.replace(/'/g, "\\'")}')" title="Chat with News">
+                                <button class="action-btn chat-btn" data-id="${article.id}" data-title="${article.title.replace(/"/g, '&quot;')}" onclick="handleMiniChat(this)" title="Chat with News">
                                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
                                 </button>
                                 <button class="action-btn bounty-btn" onclick="reportBounty('${article.id}')" title="Fact-Check Bounty">
@@ -480,6 +480,12 @@
                 `;
                 newsGrid.appendChild(card);
             });
+        }
+
+        function handleMiniChat(btn) {
+            const id = btn.dataset.id;
+            const title = btn.dataset.title;
+            openMiniChat(id, title);
         }
 
         async function openMiniChat(articleId, title) {
