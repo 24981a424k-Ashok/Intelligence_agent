@@ -1117,6 +1117,12 @@ def _update_student_cache_if_needed(db: Session, force: bool = False, country: s
         "top_trending_exam": top_exam
     }
     cache["last_updated"] = now
+    
+    # If no articles found for specific country, try to populate from Global for better UX
+    if len(processed_articles) == 0 and target_name != "Global":
+        logger.info(f"0 articles found for {target_name}. Attempting to fallback to Global student news.")
+        return _update_student_cache_if_needed(db, force=True, country="Global")
+
     logger.info(f"Student Cache updated. Found {len(processed_articles)} relevant articles for {target_name}.")
 
 # --- ADMIN MANAGEMENT API ENDPOINTS ---
@@ -1428,7 +1434,7 @@ async def api_search_news(
         "articles": [{
             "id": a.id,
             "title": a.title,
-            "summary": a.summary_bullets[:200] if a.summary_bullets else "",
+            "summary": (a.why_it_matters or (" ".join(a.summary_bullets[:2]) if a.summary_bullets else ""))[:500],
             "url": a.url,
             "image_url": a.image_url or "https://images.unsplash.com/photo-1504711434969-e33886168f5c?q=80&w=1000",
             "source_name": a.source_name,
