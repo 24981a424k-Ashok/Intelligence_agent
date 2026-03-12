@@ -1109,6 +1109,16 @@ def _update_student_cache_if_needed(db: Session, force: bool = False, country: s
         if top_tags:
             most_discussed = max(top_tags.items(), key=lambda x: x[1])[0]
     
+    # If no articles found for specific country, try to populate from Global for better UX
+    if len(processed_articles) == 0 and target_name != "Global":
+        logger.info(f"0 articles found for {target_name}. Attempting to fallback to Global student news.")
+        global_cache = _update_student_cache_if_needed(db, force=True, country="Global")
+        # Copy global result to this country's cache to ensure it's not empty
+        cache["articles"] = global_cache.get("articles", [])
+        cache["trends"] = global_cache.get("trends", {})
+        cache["last_updated"] = now
+        return cache
+
     cache["articles"] = processed_articles
     cache["trends"] = {
         "total_articles": len(processed_articles),
@@ -1118,13 +1128,8 @@ def _update_student_cache_if_needed(db: Session, force: bool = False, country: s
         "top_trending_exam": top_exam
     }
     cache["last_updated"] = now
-    
-    # If no articles found for specific country, try to populate from Global for better UX
-    if len(processed_articles) == 0 and target_name != "Global":
-        logger.info(f"0 articles found for {target_name}. Attempting to fallback to Global student news.")
-        return _update_student_cache_if_needed(db, force=True, country="Global")
-
     logger.info(f"Student Cache updated. Found {len(processed_articles)} relevant articles for {target_name}.")
+    return cache
 
 # --- ADMIN MANAGEMENT API ENDPOINTS ---
 
@@ -1402,13 +1407,16 @@ async def api_search_news(
     db: Session = Depends(get_db)
 ):
     offset = (page - 1) * 12
-    query = db.query(VerifiedNews)
+    # Time filter: Try 7 days first for high relevance
+    lookback = datetime.utcnow() - timedelta(days=7)
+    query = db.query(VerifiedNews).filter(VerifiedNews.created_at >= lookback)
     
     if q:
         query = query.filter(
             or_(
                 VerifiedNews.title.ilike(f"%{q}%"),
-                VerifiedNews.why_it_matters.ilike(f"%{q}%")
+                VerifiedNews.why_it_matters.ilike(f"%{q}%"),
+                VerifiedNews.content.ilike(f"%{q}%")
             )
         )
     
