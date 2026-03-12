@@ -1054,7 +1054,8 @@ def _update_student_cache_if_needed(db: Session, force: bool = False, country: s
         # Pre-filter using fast string matching to avoid processing entirely unrelated news
         combined = f"{article.title} {article.content}".lower()
         # Relaxed pre-filter: catch more educational and student-relevant content
-        if not any(kw in combined for kw in ["student", "exam", "school", "university", "college", "scholarship", "syllabus", "ugc", "cbse", "nta", "placement", "job", "career", "admission", "startup", "grant", "hackathon", "funding", "education", "learning", "degree", "diploma", "research", "campus", "internship", "hiring", "recruitment", "youth", "academic", "tuition", "entrance", "vacancy", "intern", "campus"]):
+        student_keywords = ["student", "exam", "school", "university", "college", "scholarship", "syllabus", "ugc", "cbse", "nta", "placement", "job", "career", "admission", "startup", "grant", "hackathon", "funding", "education", "learning", "degree", "diploma", "research", "campus", "internship", "hiring", "recruitment", "youth", "academic", "tuition", "entrance", "vacancy", "intern", "campus", "test", "result", "admit", "coaching", "training"]
+        if not any(kw in combined for kw in student_keywords):
             continue
             
         student_data = student_classifier.process_article(article.title, article.content)
@@ -1418,6 +1419,9 @@ async def api_search_news(
         for i in interest_list:
             # Case-insensitive partial match for category
             filters.append(VerifiedNews.category.ilike(f"%{i}%"))
+            # Match in text as well if specifically searching interests
+            filters.append(VerifiedNews.title.ilike(f"%{i}%"))
+            filters.append(VerifiedNews.why_it_matters.ilike(f"%{i}%"))
             # If it's "Defense & Security", also try "Defense" 
             if " & " in i:
                 parts = i.split(" & ")
@@ -1426,8 +1430,19 @@ async def api_search_news(
                         filters.append(VerifiedNews.category.ilike(f"%{p}%"))
         
         query = query.filter(or_(*filters))
-        
+    
+    # HF DEBUG: Expand lookback if no results found to avoid blank screen
     articles = query.order_by(VerifiedNews.impact_score.desc(), VerifiedNews.created_at.desc()).offset(offset).limit(12).all()
+    
+    if not articles and page == 1:
+        # Retry with MUCH longer lookback (30 days) to ensure something shows up
+        lookback_extended = datetime.utcnow() - timedelta(days=30)
+        query_ext = db.query(VerifiedNews).filter(VerifiedNews.created_at >= lookback_extended)
+        if q:
+            query_ext = query_ext.filter(or_(VerifiedNews.title.ilike(f"%{q}%"), VerifiedNews.why_it_matters.ilike(f"%{q}%")))
+        if interests:
+            query_ext = query_ext.filter(or_(*filters))
+        articles = query_ext.order_by(VerifiedNews.impact_score.desc(), VerifiedNews.created_at.desc()).offset(offset).limit(12).all()
     
     return {
         "status": "success",
