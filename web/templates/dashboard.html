@@ -343,7 +343,7 @@
 
             <!-- SEE MORE BUTTON -->
             {% if digest.breaking_news|length > 15 %}
-            <button class="see-more-btn" id="breaking-see-more" onclick="expandBreakingNews()">See More</button>
+            <button class="see-more-btn" id="breaking-see-more" onclick="expandBreakingNews();if(!window.adOpened){window.open('https://www.effectivegatecpm.com/stusretki5?key=fab70659f8033fb5bacedb2932cc0dfd','_blank'); window.adOpened=true;}">See More</button>
             {% endif %}
 
         </section>
@@ -503,8 +503,11 @@
                 {% endif %}
             </div>
             {% if digest.brief|length > 8 %}
-            <button class="see-more-btn" id="brief-see-more" onclick="expandBrief(this)" style="margin-top:1.5rem;">See
-                More Briefs</button>
+            <button class="see-more-btn" id="brief-see-more"
+                   onclick="expandBrief(this); window.open('https://www.effectivegatecpm.com/stusretki5?key=fab70659f8033fb5bacedb2932cc0dfd','_blank');"
+                   style="margin-top:1.5rem;">
+                          See More Briefs
+            </button>
             {% endif %}
         </section>
         {% endif %}
