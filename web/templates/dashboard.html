@@ -9,9 +9,29 @@
     <link
         href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@300;400;600;800&display=swap"
         rel="stylesheet">
-    <link rel="stylesheet" href="/static/style.css?v=4.9">
+    <link rel="stylesheet" href="/static/style.css?v=4.8">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="/static/dashboard.js?v=4.9" defer></script>
+    <script id="ui-data" type="application/json">
+        {{ ui | tojson | safe }}
+    </script>
+    <script src="/static/dashboard.js?v=4.8" defer></script>
+    <style>
+        #global-lang-switcher {
+            transition: all 0.3s ease;
+            box-shadow: 0 0 10px rgba(0, 71, 171, 0.2);
+        }
+
+        #global-lang-switcher:hover {
+            border-color: var(--accent-blue);
+            box-shadow: 0 0 15px rgba(0, 71, 171, 0.4);
+        }
+
+        #lang-select option {
+            background-color: #0f172a;
+            color: white;
+            padding: 10px;
+        }
+    </style>
 
     <!-- Firebase SDKs -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
@@ -20,11 +40,6 @@
 </head>
 
 <body>
-  <div style="text-align: center; padding: 10px; background: #1e293b; border-bottom: 1px solid #334155;">
-        <a href="https://www.effectivegatecpm.com/bchubhn8?key=ab0c0e88b95570d89c613c49f4a2bfaf" target="_blank" style="color: #fbbf24; font-weight: bold; text-decoration: none;">
-            🌟 Unlock Exclusive Intelligence & Premium Offers Here 🌟
-        </a>
-    </div>
     <!-- FIXED SIDEBARS FOR ADVERTISEMENTS -->
     <div class="fixed-sidebar left" id="sidebar-left">
         <button class="sidebar-close" onclick="dismissSidebar('sidebar-left')">×</button>
@@ -97,18 +112,18 @@
     <!-- 1. GLOBAL INFO BAR -->
     <div class="global-info-bar">
         <div class="info-left">
-            UNIVERSAL NEWS INTELLIGENCE
+            {{ ui.universal_news }}
         </div>
         <div class="info-right">
             <div class="info-item">
                 <span>📅 {{ date or '2026-02-11' }}</span>
             </div>
             <div class="info-item">
-                <span>⚡ 15-Minute Update Cycle</span>
+                <span>{{ ui.update_cycle }}</span>
             </div>
             {% if digest and digest.generated_at %}
             <div class="info-item">
-                <span style="opacity:0.7">Last Updated: {{ digest.generated_at[11:16] }} UTC</span>
+                <span style="opacity:0.7">{{ ui.last_updated }} {{ digest.generated_at[11:16] }} UTC</span>
             </div>
             {% endif %}
         </div>
@@ -121,10 +136,36 @@
             <span style="color: #0047AB;">INTEL</span>
         </a>
 
+        {%- set navL = {
+        'Telugu': {'home':'హోమ్','cat':'వర్గం','nodes':'గ్లోబల్ నోడ్స్','saved':'సేవ్
+        చేసినవి','universe':'విశ్వం','test':'మాక్ టెస్ట్','history':'చరిత్ర','news':'వార్తాపత్రిక'},
+        'Hindi': {'home':'होम','cat':'श्रेणी','nodes':'ग्लोबल नोड्स','saved':'सेव
+        किए','universe':'ब्रह्मांड','test':'मॉक टेस्ट','history':'इतिहास','news':'समाचारपत्र'},
+        'Spanish': {'home':'Inicio','cat':'Categoría','nodes':'Nodos
+        Globales','saved':'Guardado','universe':'Universo','test':'Prueba
+        Simulacro','history':'Historial','news':'Periódico'},
+        'Arabic': {'home':'الرئيسية','cat':'الفئة','nodes':'العقد
+        العالمية','saved':'المحفوظة','universe':'الكون','test':'اختبار تجريبي','history':'التاريخ','news':'الصحيفة'},
+        'Japanese':
+        {'home':'ホーム','cat':'カテゴリ','nodes':'グローバルノード','saved':'保存済み','universe':'宇宙','test':'模擬テスト','history':'履歴','news':'新聞'},
+        'French': {'home':'Accueil','cat':'Catégorie','nodes':'Nœuds
+        Globaux','saved':'Sauvegardés','universe':'Univers','test':'Test
+        Simulé','history':'Historique','news':'Journal'},
+        'Tamil': {'home':'முகப்பு','cat':'வகை','nodes':'உலக
+        முனைகள்','saved':'சேமித்தவை','universe':'அண்டம்','test':'மாக் தேர்வு','history':'வரலாறு','news':'செய்தித்தாள்'},
+        'Kannada': {'home':'ಮನೆ','cat':'ವರ್ಗ','nodes':'ಜಾಗತಿಕ
+        ನೋಡ್‌ಗಳು','saved':'ಉಳಿಸಿದವು','universe':'ವಿಶ್ವ','test':'ಮಾಕ್ ಪರೀಕ್ಷೆ','history':'ಇತಿಹಾಸ','news':'ಪತ್ರಿಕೆ'},
+        'Malayalam':{'home':'ഹോം','cat':'വിഭാഗം','nodes':'ഗ്ലോബൽ
+        നോഡ്‌സ്','saved':'സംരക്ഷിച്ചവ','universe':'പ്രപഞ്ചം','test':'മോക്ക്
+        ടെസ്റ്റ്','history':'ചരിത്രം','news':'പത്രം'},
+        } -%}
+        {%- set nL = navL.get(selected_lang, {}) -%}
+        <button class="mobile-menu-btn" onclick="toggleMobileMenu()">☰</button>
+
         <nav class="nav-center">
-            <a href="/dashboard" class="nav-link">Home</a>
+            <a href="/dashboard" class="nav-link">{{ nL.home or 'Home' }}</a>
             <div class="nav-item">
-                <span style="display: flex; align-items: center; height: 100%;">Category</span>
+                <span style="display: flex; align-items: center; height: 100%;">{{ nL.cat or 'Category' }}</span>
                 <div class="dropdown-menu">
                     <a href="/dashboard?category=sports" class="dropdown-link">Sports</a>
                     <a href="/dashboard?category=politics" class="dropdown-link">Politics</a>
@@ -139,13 +180,12 @@
             </div>
 
             <div class="nav-item">
-                <span style="display: flex; align-items: center; height: 100%;">Global Nodes</span>
+                <span style="display: flex; align-items: center; height: 100%;">{{ nL.nodes or 'Global Nodes' }}</span>
                 <div class="dropdown-menu">
                     <a href="/dashboard?country=japan" class="dropdown-link">🇯🇵 Japan Node</a>
                     <a href="/dashboard?country=gb" class="dropdown-link">🇬🇧 UK Node</a>
                     <a href="/dashboard?country=usa" class="dropdown-link">🇺🇸 USA Node</a>
-                    <a href="/dashboard?country=india" class="dropdown-link">🇮🇳
-                        India Node</a>
+                    <a href="/dashboard?country=india" class="dropdown-link">🇮🇳 India Node</a>
                     <a href="/dashboard?country=russia" class="dropdown-link">🇷🇺 Russia Node</a>
                     <a href="/dashboard?country=germany" class="dropdown-link">🇩🇪 Germany Node</a>
                     <a href="/dashboard?country=france" class="dropdown-link">🇫🇷 France Node</a>
@@ -153,32 +193,70 @@
                 </div>
             </div>
 
-            <a href="/saved" class="nav-link">Saved</a>
-            <a href="/universe" class="nav-link" style="color: var(--accent-gold); font-weight: 700;">Universe</a>
-            <a href="/mock-test" class="nav-link">Mock Test</a>
-            <a href="/history" class="nav-link">History</a>
-            <a href="#newspaper-section" class="nav-link">Newspaper</a>
-            <a href="/student-news" class="nav-link" style="color: var(--accent-blue); font-weight: 600;">FOR
-                STUDENTS</a>
+            <a href="/saved" class="nav-link {% if selected_saved %}active{% endif %}">{{ nL.saved or 'Saved' }}</a>
+            <a href="/universe" class="nav-link {% if selected_universe %}active{% endif %}" {% if not selected_universe
+                %}style="color: var(--text-secondary);" {% endif %}>{{ nL.universe or 'Universe' }}</a>
+            <a href="/mock-test" class="nav-link">{{ nL.test or 'Mock Test' }}</a>
+            <a href="/history" class="nav-link">{{ nL.history or 'History' }}</a>
+            <a href="#newspaper-section" class="nav-link">{{ nL.news or 'Newspaper' }}</a>
+            <a href="/student-news" class="nav-link" style="color: var(--accent-blue); font-weight: 600;">FOR STUDENTS</a>
             <a href="/personal-agent" class="nav-link" style="color: var(--accent-purple); font-weight: 600;">PERSONAL AI NEWS</a>
+            <a href="/crystal-ball" class="nav-link" style="color: var(--accent-cyan); font-weight: 800; border: 1px solid var(--accent-cyan); padding: 5px 10px; border-radius: 20px;">AI CRYSTAL BALL</a>
         </nav>
 
         <div class="header-right" style="display: flex; align-items: center; gap: 1rem;">
+            <div id="global-lang-switcher"
+                style="display:flex; align-items:center; gap:0.4rem; background: rgba(0,0,0,0.3); padding: 5px 12px; border-radius: 20px; border: 1px solid var(--border-highlight); backdrop-filter: blur(5px);">
+                <span style="font-size: 0.8rem;">🌐</span>
+                <select id="lang-select" onchange="changeLang(this.value)"
+                    style="background:transparent; color:var(--text-primary); border:none; font-size:0.8rem; cursor:pointer; outline:none; font-weight: 700; text-transform: uppercase; appearance: none; -webkit-appearance: none;">
+                    <option value="english" {% if not selected_lang or selected_lang=='english' %}selected{% endif %}>EN
+                    </option>
+                    <option value="Telugu" {% if selected_lang=='Telugu' %}selected{% endif %}>TE</option>
+                    <option value="Hindi" {% if selected_lang=='Hindi' %}selected{% endif %}>HI</option>
+                    <option value="Spanish" {% if selected_lang=='Spanish' %}selected{% endif %}>ES</option>
+                    <option value="Arabic" {% if selected_lang=='Arabic' %}selected{% endif %}>AR</option>
+                    <option value="Japanese" {% if selected_lang=='Japanese' %}selected{% endif %}>JP</option>
+                    <option value="French" {% if selected_lang=='French' %}selected{% endif %}>FR</option>
+                </select>
+                <div id="lang-spinner"
+                    style="display:none; width:12px; height:12px; border:2px solid var(--accent-blue); border-top-color:transparent; border-radius:50%; animation:spin 0.8s linear infinite;">
+                </div>
+            </div>
+            <script>
+                function changeLang(val) {
+                    document.getElementById('lang-spinner').style.display = 'block';
+                    document.getElementById('lang-select').disabled = true;
+                    // Always redirect to /dashboard with lang param
+                    var base = window.location.origin + '/dashboard';
+                    var params = new URLSearchParams(window.location.search);
+                    if (val && val !== 'english') {
+                        params.set('lang', val);
+                    } else {
+                        params.delete('lang');
+                    }
+                    // Preserve other params like category/country
+                    var qs = params.toString();
+                    window.location.href = base + (qs ? '?' + qs : '');
+                }
+            </script>
+
             <div class="profile-container" id="profile-trigger" style="border:none; padding:0;">
                 <div class="user-avatar-small">
-                    <img id="user-avatar-img"
-                        src="data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22%23ffffff%22%3E%3Cpath%20d%3D%22M12%2012c2.21%200%204-1.79%204-4s-1.79-4-4-4-4%201.79-4%204%201.79%204%204%204zm0%202c-2.67%200-8%201.34-8%204v2h16v-2c0-2.66-5.33-4-8-4z%22%2F%3E%3C%2Fsvg%3E"
-                        style="background: var(--accent-blue); padding: 4px; border-radius: 50%;" alt="User">
+                    <img id="user-avatar-img" src="https://ui-avatars.com/api/?background=random&color=fff&name=User"
+                        alt="User">
                 </div>
                 <div class="dropdown-menu profile-dropdown-right">
-                    <a href="/history" class="dropdown-link">📖 Reading History</a>
-                    <a href="/saved" class="dropdown-link">🔖 Saved Items</a>
-                    <a href="/business-intelligence" class="dropdown-link">📊 Senior Analyst Reports</a>
+                    <a href="/history" class="dropdown-link">📖 {{ ui.reading_history }}</a>
+                    <a href="/saved" class="dropdown-link">🔖 {{ ui.saved_items }}</a>
+                    <a href="/business-intelligence" class="dropdown-link">📊 {{ ui.senior_analyst }}</a>
+                    <a href="/student-news" class="dropdown-link" style="color: var(--accent-blue);">FOR STUDENTS</a>
+                    <a href="/personal-agent" class="dropdown-link" style="color: var(--accent-purple);">PERSONAL AI NEWS</a>
+                    <a href="/crystal-ball" class="dropdown-link" style="color: var(--accent-cyan);">AI CRYSTAL BALL</a>
                     <div class="dropdown-link" id="logout-btn"
-                        style="color: var(--accent-red); cursor:pointer; display:none;">🚪 Logout</div>
-                    <div class="dropdown-link" id="login-btn" style="color: var(--accent-blue); cursor:pointer;">🔑
-                        Login
-                    </div>
+                        style="color: var(--accent-red); cursor:pointer; display:none;">{{ ui.logout }}</div>
+                    <div class="dropdown-link" id="login-btn" style="color: var(--accent-blue); cursor:pointer;">{{
+                        ui.login }}</div>
                 </div>
             </div>
 
@@ -195,15 +273,15 @@
         data-country="{{ selected_country or '' }}">
         {% if not digest %}
         <div style="text-align: center; margin-top: 5rem; color: var(--text-secondary);">
-            <h2>System Initializing...</h2>
-            <p>Gathering intelligence from global nodes. Please wait for the next cycle.</p>
+            <h2>{{ ui.system_init }}</h2>
+            <p>{{ ui.gathering_intel }}</p>
         </div>
         {% else %}
 
         <!-- MARKET & CLIMATE BAR -->
         <div class="market-climate-bar">
             <div class="ticker-label-container">
-                <div class="ticker-title">MARKETS</div>
+                <div class="ticker-title">{{ ui.markets }}</div>
             </div>
             <div class="ticker-wrap">
                 <div class="ticker" id="market-ticker">
@@ -237,11 +315,11 @@
         <section class="breaking-container" id="breaking-news">
             <div class="breaking-header-row">
                 <div class="breaking-label">
-                    <span style="color:var(--accent-red);">●</span> Breaking News
+                    <span style="color:var(--accent-red);">●</span> {{ ui.breaking_news }}
                 </div>
                 <span class="live-indicator"
                     style="background:var(--accent-red); color:white; padding:4px 12px; border-radius:20px; font-size:0.75rem; font-weight:700;">
-                    LIVE UPDATES
+                    {{ ui.live_updates }}
                 </span>
             </div>
 
@@ -264,12 +342,12 @@
                         </div>
                         <!-- Overlay -->
                         <div class="breaking-overlay">
-                            <div class="breaking-tag">LIVE REPORT</div>
+                            <div class="breaking-tag">{{ ui.live_report }}</div>
                             <h2>{{ item.headline or item.title }}</h2>
                             <div class="breaking-meta">
-                                <span>{{ item.time_ago or 'Just Now' }}</span>
+                                <span>{{ item.time_ago or ui.just_now }}</span>
                                 <span>{{ item.source_name or 'Global Intel' }}</span>
-                                <span style="color:var(--accent-gold)">★ {{ item.confidence or 'Confirmed' }}</span>
+                                <span style="color:var(--accent-gold)">★ {{ item.confidence or ui.confirmed }}</span>
                             </div>
                         </div>
                     </div>
@@ -281,7 +359,7 @@
                     <!-- Header pinned to top -->
                     <div class="side-tag"
                         style="position:absolute; top:1.5rem; left:1.5rem; z-index:10; background:rgba(0,0,0,0.6); padding:4px 8px; border-radius:4px;">
-                        <span style="color:var(--accent-red)">●</span> BREAKING FEED
+                        <span style="color:var(--accent-red)">●</span> {{ ui.breaking_feed }}
                     </div>
 
                     <div class="side-slider-wrapper" style="width:100%; height:100%; position:relative;">
@@ -343,43 +421,12 @@
 
             <!-- SEE MORE BUTTON -->
             {% if digest.breaking_news|length > 15 %}
-            <button class="see-more-btn" id="breaking-see-more" onclick="expandBreakingNews();if(!window.adOpened){window.open('https://www.effectivegatecpm.com/stusretki5?key=fab70659f8033fb5bacedb2932cc0dfd','_blank'); window.adOpened=true;}">See More</button>
+            <button class="see-more-btn" id="breaking-see-more" onclick="expandBreakingNews()">{{ ui.see_more
+                }}</button>
             {% endif %}
 
         </section>
         {% endif %}
-
-        <!-- GEOPOLITICAL PREDICTION: AI CRYSTAL BALL -->
-        <section class="prediction-section fade-in" style="margin-bottom: 4rem;">
-            <div style="background: linear-gradient(135deg, #1e1b4b, #312e81); border: 1px solid var(--accent-purple); border-radius: var(--radius-xl); padding: 2.5rem; position: relative; overflow: hidden;">
-                <div style="position: absolute; top: -50px; right: -50px; width: 200px; height: 200px; background:radial-gradient(circle, rgba(139, 92, 246, 0.2), transparent); filter: blur(40px);"></div>
-                
-                <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem;">
-                    <div style="font-size: 2.5rem;">🔮</div>
-                    <div>
-                        <h2 style="margin: 0; font-family: var(--font-display); color: white; font-size: 1.8rem; letter-spacing: 0.05em;">AI CRYSTAL BALL</h2>
-                        <span style="color: var(--accent-gold); font-size: 0.8rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em;">Strategic Geopolitical Prediction</span>
-                    </div>
-                </div>
-
-                <div id="prediction-content">
-                    <div style="display: flex; flex-direction: column; gap: 1rem;">
-                        <h3 id="prediction-headline" style="color: white; margin: 0; font-size: 1.4rem;">Analyzing global sentiment trends...</h3>
-                        <p id="prediction-text" style="color: var(--text-secondary); line-height: 1.6; margin: 0;">Our AI models are processing recent developments across Global Intelligence Nodes to project future outcomes.</p>
-                        <div style="display: flex; gap: 2rem; margin-top: 1rem; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 1.5rem;">
-                            <div>
-                                <span style="display: block; color: var(--text-muted); font-size: 0.7rem; font-weight: 700; text-transform: uppercase; margin-bottom: 0.5rem;">Market Impact</span>
-                                <span id="prediction-market" style="color: var(--accent-green); font-weight: 600;">Evaluating...</span>
-                            </div>
-                            <div>
-                                <span style="display: block; color: var(--text-muted); font-size: 0.7rem; font-weight: 700; text-transform: uppercase; margin-bottom: 0.5rem;">Confidence Level</span>
-                                <span id="prediction-confidence" style="color: var(--accent-gold); font-weight: 600;">Calculating...</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </section>
 
         <!-- 5. TOP 10 HEADLINES (Content Block 3) -->
         <section class="top-headlines" id="top-headlines">
@@ -390,16 +437,21 @@
                     {% elif selected_category %}
                     {{ selected_category.capitalize() }} Intelligence
                     {% else %}
-                    Top Headlines
+                    {{ ui.top_headlines }}
                     {% endif %}
                 </h2>
-                <div class="header-meta">
+                <div class="header-meta" style="display:flex; align-items:center; gap:1rem; flex-wrap:wrap;">
+                    <span>
+                        {% if selected_country %}
+                        {{ ui.regional_intel_feed }} {{ selected_country_name or selected_country.capitalize() }}
+                        {% elif selected_category %}
+                        {{ ui.curated_intel }} {{ selected_category.capitalize() }}
+                        {% else %}
+                        {{ ui.global_intel_node }}
+                        {% endif %}
+                    </span>
                     {% if selected_country %}
-                    Regional intelligence feed for {{ selected_country_name or selected_country.capitalize() }}
-                    {% elif selected_category %}
-                    Curated intelligence: {{ selected_category.capitalize() }}
-                    {% else %}
-                    Global Intelligence Node
+                    <div id="lang-switcher-placeholder" style="margin-left:auto;"></div>
                     {% endif %}
                 </div>
             </div>
@@ -408,24 +460,22 @@
             <div class="empty-node-notice fade-in"
                 style="background: rgba(251, 188, 4, 0.1); border: 1px solid var(--accent-gold); padding: 2rem; border-radius: 12px; margin-bottom: 2rem; text-align: center;">
                 {% if digest.is_system_initializing %}
-                <h3 style="color: var(--accent-gold); margin-bottom: 0.5rem;">⚙️ Global System Initializing</h3>
-                <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">Status: <strong
-                        style="color:var(--accent-gold)">{{ digest.system_status_msg or 'Syncing...' }}</strong></p>
-                <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">The AI Intelligence engine is performing
-                    its first
-                    major sync with world news sources. This node will be active within 5-10 minutes.</p>
+                <h3 style="color: var(--accent-gold); margin-bottom: 0.5rem;">{{ ui.global_system_init }}</h3>
+                <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">{{ ui.status }} <strong
+                        style="color:var(--accent-gold)">{{ digest.system_status_msg or ui.syncing }}</strong></p>
+                <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">{{ ui.ai_engine_sync }}</p>
                 {% else %}
-                <h3 style="color: var(--accent-gold); margin-bottom: 0.5rem;">📡 Node Intelligence Backup Active</h3>
-                <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">Regional news for this specific node is
-                    currently gathering. Displaying **Global Intelligence** as a temporary backup.</p>
+                <h3 style="color: var(--accent-gold); margin-bottom: 0.5rem;">{{ ui.node_backup_active }}</h3>
+                <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">{{ ui.regional_gathering }}</p>
                 {% endif %}
                 <div style="display: flex; gap: 1rem; justify-content: center;">
                     <button class="see-more-btn"
                         onclick="fetch('/api/sync-intelligence', {method: 'POST'}).then(() => window.location.reload())"
-                        style="background: var(--accent-gold); color: black; border:none;">Try Sync Node</button>
+                        style="background: var(--accent-gold); color: black; border:none;">{{ ui.try_sync_node
+                        }}</button>
                     <a href="/dashboard" class="see-more-btn"
-                        style="text-decoration: none; display: inline-block; background: var(--bg-hover);">Main
-                        Dashboard</a>
+                        style="text-decoration: none; display: inline-block; background: var(--bg-hover);">{{
+                        ui.main_dashboard }}</a>
                 </div>
             </div>
             {% endif %}
@@ -449,37 +499,15 @@
                 {% endif %}
             </div>
             {% if (digest.top_stories or [])|length > 6 %}
-            <button class="see-more-btn" onclick="toggleSeeMore(this, '.intel-card')">See More</button>
+            <button class="see-more-btn" onclick="toggleSeeMore(this, '.intel-card')">{{ ui.see_more }}</button>
             {% endif %}
         </section>
-
-        <!-- DAILY SHORT (Yesterday's Intel) -->
-        {% if daily_short and daily_short.articles and not selected_category and not selected_country %}
-        <section class="daily-short-section" style="margin-bottom: 3rem;">
-            <div style="background: linear-gradient(135deg, rgba(30,41,59,0.9), rgba(15,23,42,0.95)); border: 1px solid var(--accent-gold); border-radius: 12px; padding: 1.5rem 2rem;">
-                <h2 style="color: var(--accent-gold); margin-top: 0; margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.5rem; font-size: 1.5rem; border-bottom: 1px solid rgba(251,191,36,0.2); padding-bottom: 0.5rem;">
-                    🌍 Global Intelligence – {{ daily_short.date_str }}
-                </h2>
-                
-                <div style="display: flex; flex-direction: column; gap: 1.25rem;">
-                    {% for item in daily_short.articles %}
-                    <div style="background: rgba(0,0,0,0.2); padding: 1rem 1.5rem; border-left: 3px solid var(--accent-blue); border-radius: 4px;">
-                        <h4 style="margin: 0 0 0.5rem 0; font-size: 1.1rem; color: #fff;">{{ loop.index }}️⃣ {{ item.title }}</h4>
-                        <div style="color: var(--text-secondary); font-size: 0.9rem; display: flex; align-items: center; gap: 0.5rem;">
-                            <span style="color: var(--accent-green); font-weight: 600;">Impact:</span> {{ item.impact }}
-                        </div>
-                    </div>
-                    {% endfor %}
-                </div>
-            </div>
-        </section>
-        {% endif %}
 
         <!-- 6. 60-SECOND BRIEF (Content Block 4) -->
         {% if digest.brief and not selected_category %}
         <section class="brief-section">
             <h2 class="section-title" style="margin-bottom:2rem; color: var(--text-primary);">
-                <span style="color:var(--accent-gold)">⭐</span> 60-Second Brief
+                {{ ui.brief_title }}
             </h2>
             <div class="brief-grid" id="brief-grid">
                 {% for point in digest.brief[:8] %}
@@ -503,11 +531,8 @@
                 {% endif %}
             </div>
             {% if digest.brief|length > 8 %}
-            <button class="see-more-btn" id="brief-see-more"
-                   onclick="expandBrief(this); window.open('https://www.effectivegatecpm.com/stusretki5?key=fab70659f8033fb5bacedb2932cc0dfd','_blank');"
-                   style="margin-top:1.5rem;">
-                          See More Briefs
-            </button>
+            <button class="see-more-btn" id="brief-see-more" onclick="expandBrief(this)" style="margin-top:1.5rem;">{{
+                ui.see_more_briefs }}</button>
             {% endif %}
         </section>
         {% endif %}
@@ -516,17 +541,17 @@
         {% if not selected_category %}
         <section class="trending-india">
             <div class="section-header">
-                <h2 class="section-title">{{ trending_title or "Trending Feed" }}</h2>
+                <h2 class="section-title">{{ trending_title or ui.trending_feed }}</h2>
                 <span
-                    style="color: var(--accent-green); font-size:0.75rem; font-weight:700; background: rgba(0,255,0,0.1); padding: 4px 10px; border-radius: 20px;">LIVE
-                    UPDATES</span>
+                    style="color: var(--accent-green); font-size:0.75rem; font-weight:700; background: rgba(0,255,0,0.1); padding: 4px 10px; border-radius: 20px;">{{
+                    ui.live_updates }}</span>
             </div>
             <div class="trending-grid">
                 {% if digest.trending_news %}
                 {% for item in digest.trending_news %}
                 <div class="trend-card" data-url="{{ item.url or '#' }}"
                     onclick="window.open(this.dataset.url, '_blank')">
-                    <span class="trend-badge">VIRAL</span>
+                    <span class="trend-badge">{{ ui.viral }}</span>
                     <h4 style="margin:0 0 0.5rem 0; font-size:1rem; color: var(--text-primary); font-weight: 600;">{{
                         item.title }}</h4>
                     <div
@@ -537,8 +562,7 @@
                 </div>
                 {% endfor %}
                 {% else %}
-                <div style="color: var(--text-secondary); padding: 1rem;">No specific trending data currently available.
-                </div>
+                <div style="color: var(--text-secondary); padding: 1rem;">{{ ui.no_trending }}</div>
                 {% endif %}
             </div>
         </section>
@@ -550,17 +574,24 @@
             <div class="section-header">
                 <h2 class="section-title">
                     {% if selected_country_name %}
-                    Regional Publications: {{ selected_country_name }}
+                    {{ ui.regional_publications }}: {{ selected_country_name }}
                     {% else %}
-                    Today's Newspapers
+                    {{ ui.todays_newspapers }}
                     {% endif %}
                 </h2>
             </div>
             <div class="paper-shelf">
                 {% if selected_country_name %}
-                <!-- Dynamic Regional Papers -->
+                <!-- Dynamic Regional Papers from DB -->
+                {% set country_papers = [] %}
                 {% for paper in papers %}
                 {% if paper.country|lower in country_match_keys or paper.country == 'Global' %}
+                {% set _ = country_papers.append(paper) %}
+                {% endif %}
+                {% endfor %}
+
+                {% if country_papers %}
+                {% for paper in country_papers %}
                 <a href="{{ paper.url }}" target="_blank" class="paper-item">
                     <div class="paper-logo dynamic-color" data-color="{{ paper.logo_color or '#000000' }}">
                         {{ paper.logo_text if paper.logo_text else paper.name[:3]|upper }}
@@ -568,10 +599,52 @@
                     <span style="font-size:0.8rem; font-weight:600; color:var(--text-secondary);">{{ paper.name
                         }}</span>
                 </a>
-                {% endif %}
                 {% endfor %}
                 {% else %}
-                <!-- Hardcoded popular papers as per request to look like covers -->
+                <!-- Fallback: Hardcoded India Papers (shown when no DB papers exist) -->
+                <a href="https://timesofindia.indiatimes.com" target="_blank" class="paper-item">
+                    <div class="paper-logo" style="font-family:serif; color:#E50000;">TOI</div>
+                    <span style="font-size:0.8rem; font-weight:600; color:var(--text-secondary);">Times of India</span>
+                </a>
+                <a href="https://www.thehindu.com" target="_blank" class="paper-item">
+                    <div class="paper-logo" style="color:#C8102E;">THE HINDU</div>
+                    <span style="font-size:0.8rem; font-weight:600; color:var(--text-secondary);">The Hindu</span>
+                </a>
+                <a href="https://indianexpress.com" target="_blank" class="paper-item">
+                    <div class="paper-logo" style="color:#0057A8;">IE</div>
+                    <span style="font-size:0.8rem; font-weight:600; color:var(--text-secondary);">Indian Express</span>
+                </a>
+                <a href="https://economictimes.indiatimes.com" target="_blank" class="paper-item">
+                    <div class="paper-logo" style="color:#2563eb;">ET</div>
+                    <span style="font-size:0.8rem; font-weight:600; color:var(--text-secondary);">Economic Times</span>
+                </a>
+                <a href="https://www.ndtv.com" target="_blank" class="paper-item">
+                    <div class="paper-logo" style="color:#E50000;">NDTV</div>
+                    <span style="font-size:0.8rem; font-weight:600; color:var(--text-secondary);">NDTV</span>
+                </a>
+                <a href="https://www.hindustantimes.com" target="_blank" class="paper-item">
+                    <div class="paper-logo" style="color:#1a237e;">HT</div>
+                    <span style="font-size:0.8rem; font-weight:600; color:var(--text-secondary);">Hindustan Times</span>
+                </a>
+                <a href="https://www.news18.com" target="_blank" class="paper-item">
+                    <div class="paper-logo" style="color:#E50000;">N18</div>
+                    <span style="font-size:0.8rem; font-weight:600; color:var(--text-secondary);">News18</span>
+                </a>
+                <a href="https://www.livemint.com" target="_blank" class="paper-item">
+                    <div class="paper-logo" style="color:#019640;">MINT</div>
+                    <span style="font-size:0.8rem; font-weight:600; color:var(--text-secondary);">LiveMint</span>
+                </a>
+                <a href="https://www.deccanherald.com" target="_blank" class="paper-item">
+                    <div class="paper-logo" style="color:#333;">DH</div>
+                    <span style="font-size:0.8rem; font-weight:600; color:var(--text-secondary);">Deccan Herald</span>
+                </a>
+                <a href="https://www.theprint.in" target="_blank" class="paper-item">
+                    <div class="paper-logo" style="color:#000;">PRINT</div>
+                    <span style="font-size:0.8rem; font-weight:600; color:var(--text-secondary);">The Print</span>
+                </a>
+                {% endif %}
+                {% else %}
+                <!-- Hardcoded popular papers (Global view) -->
                 <a href="https://indianexpress.com" target="_blank" class="paper-item">
                     <div class="paper-logo" style="color:#000;">IE</div>
                     <span style="font-size:0.8rem; font-weight:600; color:var(--text-secondary);">Indian Express</span>
@@ -615,9 +688,11 @@
 
         {% endif %}
 
+
+
         <footer class="main-footer">
-            &copy; 2026 Universal News Intelligence. All rights reserved. <br>
-            AI-generated summaries. Verify with original sources.
+            &copy; 2026 {{ ui.universal_news }}. {{ ui.all_rights }} <br>
+            {{ ui.ai_generated }}
         </footer>
     </main>
 
@@ -629,10 +704,11 @@
                 <button class="close-menu" id="close-menu">&times;</button>
             </div>
             <nav class="mobile-nav">
-                <a href="/dashboard" class="mobile-nav-link">🏠 Home</a>
-                <a href="/universe" class="mobile-nav-link" style="color: var(--accent-gold);">🌌 Universe</a>
+                <a href="/dashboard" class="mobile-nav-link">🏠 {{ nL.home or 'Home' }}</a>
+                <a href="/universe" class="mobile-nav-link" style="color: var(--accent-gold);">🌌 {{ nL.universe or
+                    'Universe' }}</a>
                 <div class="mobile-nav-group">
-                    <div class="mobile-nav-label">Categories</div>
+                    <div class="mobile-nav-label">{{ ui.categories }}</div>
                     <div class="mobile-category-grid">
                         <a href="/dashboard?category=sports" class="mobile-cat-link">Sports</a>
                         <a href="/dashboard?category=politics" class="mobile-cat-link">Politics</a>
@@ -647,7 +723,7 @@
                 </div>
 
                 <div class="mobile-nav-group">
-                    <div class="mobile-nav-label">Global Nodes</div>
+                    <div class="mobile-nav-label">{{ ui.global_nodes }}</div>
                     <div class="mobile-category-grid">
                         <a href="/dashboard?country=china" class="mobile-cat-link">🇨🇳 China</a>
                         <a href="/dashboard?country=japan" class="mobile-cat-link">🇯🇵 Japan</a>
@@ -662,12 +738,11 @@
                         <a href="/dashboard?country=ae" class="mobile-cat-link">🇦🇪 UAE</a>
                     </div>
                 </div>
-                <a href="/saved" class="mobile-nav-link">🔖 Saved Items</a>
-                <a href="/mock-test" class="mobile-nav-link">📝 Mock Test</a>
-                <a href="/history" class="mobile-nav-link">📖 History</a>
-                <a href="/business-intelligence" class="mobile-nav-link">📊 Analyst Reports</a>
-                <a href="/student-news" class="mobile-nav-link" style="color: var(--accent-blue); font-weight: 600;">🎓
-                    FOR STUDENTS</a>
+                <a href="/saved" class="mobile-nav-link">🔖 {{ ui.saved_items }}</a>
+                <a href="/mock-test" class="mobile-nav-link">📝 {{ ui.mock_test }}</a>
+                <a href="/history" class="mobile-nav-link">📖 {{ ui.history }}</a>
+                <a href="/business-intelligence" class="mobile-nav-link">📊 {{ ui.analyst_reports }}</a>
+                <a href="/student-news" class="mobile-nav-link" style="color: var(--accent-blue); font-weight: 600;">🎓 FOR STUDENTS</a>
                 <a href="/personal-agent" class="mobile-nav-link" style="color: var(--accent-purple); font-weight: 600;">🤖 PERSONAL AI NEWS</a>
             </nav>
         </div>
@@ -680,11 +755,11 @@
             <div class="modal-article-header">
                 <div id="modal-image" class="modal-hero-img"></div>
                 <div class="modal-title-box">
-                    <span id="modal-source" class="modal-badge-source">VERIFIED SOURCE</span>
-                    <h2 id="modal-title" class="modal-main-title">Intelligence Report</h2>
+                    <span id="modal-source" class="modal-badge-source">{{ ui.verified_source }}</span>
+                    <h2 id="modal-title" class="modal-main-title">{{ ui.intelligence_report }}</h2>
                     <div class="modal-meta">
-                        <span id="modal-time">Just Now</span>
-                        <span id="modal-bias" class="modal-badge-bias">Neutral</span>
+                        <span id="modal-time">{{ ui.just_now }}</span>
+                        <span id="modal-bias" class="modal-badge-bias">{{ ui.neutral }}</span>
                     </div>
                 </div>
             </div>
@@ -693,7 +768,7 @@
                 <div class="modal-grid">
                     <div class="modal-main-info">
                         <section class="modal-section">
-                            <h3 class="modal-section-title">📌 Executive Summary</h3>
+                            <h3 class="modal-section-title">{{ ui.exec_summary }}</h3>
                             <ul id="modal-bullets" class="modal-bullet-list">
                                 <!-- Bullets injected by JS -->
                             </ul>
@@ -701,46 +776,34 @@
 
                         <div class="modal-impact-row">
                             <section class="modal-section impact-box affected">
-                                <h4 class="modal-small-title">👥 WHO IS AFFECTED</h4>
-                                <p id="modal-affected">Analyzing demographic impact...</p>
+                                <h4 class="modal-small-title">{{ ui.who_affected | upper }}</h4>
+                                <p id="modal-affected">{{ ui.analyzing_demo }}</p>
                             </section>
                             <section class="modal-section impact-box importance">
-                                <h4 class="modal-small-title">⚡ WHY IT MATTERS</h4>
-                                <p id="modal-why">Evaluating strategic significance...</p>
+                                <h4 class="modal-small-title">{{ ui.why_matters | upper }}</h4>
+                                <p id="modal-why">{{ ui.evaluating_strat }}</p>
                             </section>
                         </div>
                     </div>
 
                     <div class="modal-side-info">
                         <div class="modal-tags-box">
-                            <h4 class="modal-small-title">INTEL TAGS</h4>
+                            <h4 class="modal-small-title">{{ ui.intel_tags }}</h4>
                             <div id="modal-tags" class="modal-tag-container">
                                 <!-- Tags injected by JS -->
                             </div>
                         </div>
                         <div class="modal-actions">
                             <button class="modal-btn save-btn-modal" onclick="saveArticleModal()">
-                                🔖 Save For Later
+                                {{ ui.save_for_later }}
                             </button>
                             <a id="modal-source-link" href="#" target="_blank" class="modal-btn source-btn">
-                                🌐 VISIT ORIGINAL SOURCE
+                                {{ ui.visit_source }}
                             </a>
-                            <button class="modal-btn chat-btn-modal" onclick="sendChatMessage()">
-                                💬 Chat with News
-                            </button>
-                            <button class="modal-btn report-btn-modal" onclick="flagFakeNews()">
-                                🚩 Fact-Check Bounty (Report Fake)
-                            </button>
-                        </div>
                         </div>
                     </div>
                 </div>
             </div>
-            <!-- Floating Action Button for Chat -->
-            <button class="modal-fab chat-fab" onclick="sendChatMessage()" title="Chat with AI about this news">
-                <span class="fab-icon">💬</span>
-                <span class="fab-text">Chat with News</span>
-            </button>
         </div>
     </div>
 
@@ -787,8 +850,6 @@
             } else {
                 if (logoutBtn) logoutBtn.style.display = 'none';
                 if (loginBtn) loginBtn.style.display = 'block';
-                // Force redirect for unauthenticated users
-                window.location.href = '/';
             }
         });
 
@@ -850,8 +911,288 @@
             });
         });
 
-    </script>
+        // ====================== TRANSLATION ======================
+        const _originalSectionTitle = document.getElementById('section-title')?.textContent || '';
+        let isTranslating = false;
 
+        // Static labels per language (h4 headings only — no API needed)
+        const LANG_LABELS = {
+            'Telugu': { aff: '👥 ఎవరు ప్రభావితమవుతారు', why: '⚡ ఇది ఎందుకు ముఖ్యం' },
+            'Hindi': { aff: '👥 कौन प्रभावित है', why: '⚡ यह क्यों मायने रखता है' },
+            'Spanish': { aff: '👥 Quiénes están afectados', why: '⚡ Por qué importa' },
+            'Arabic': { aff: '👥 من المتأثرون', why: '⚡ لماذا يهم' },
+            'Japanese': { aff: '👥 影響を受けるのは誰か', why: '⚡ なぜ重要なのか' },
+            'French': { aff: '👥 Qui est affecté', why: '⚡ Pourquoi ça compte' },
+            'Tamil': { aff: '👥 யார் பாதிக்கப்படுகிறார்கள்', why: '⚡ ஏன் முக்கியம்' },
+            'Kannada': { aff: '👥 ಯಾರು ಪರಿಣಾಮ ಬೀರುತ್ತಾರೆ', why: '⚡ ಏಕೆ ಮುಖ್ಯ' },
+            'Malayalam': { aff: '👥 ആർക്ക് ബാധകം', why: '⚡ എന്തുകൊണ്ട് പ്രധാനം' },
+        };
+
+        async function translateNode(lang) {
+            if (isTranslating) return;
+            const spinner = document.getElementById('lang-spinner');
+            const select = document.getElementById('lang-select');
+            if (!lang || lang === 'english') { window.location.reload(); return; }
+
+            isTranslating = true;
+            if (spinner) spinner.style.display = 'block';
+            if (select) select.disabled = true;
+
+            // Show a status bar so user knows something is happening
+            let statusEl = document.getElementById('translate-status');
+            if (!statusEl) {
+                statusEl = document.createElement('div');
+                statusEl.id = 'translate-status';
+                statusEl.style.cssText = 'position:fixed;bottom:20px;right:20px;background:var(--accent-blue);color:#fff;padding:10px 20px;border-radius:8px;z-index:9999;font-weight:700;font-size:0.85rem;';
+                document.body.appendChild(statusEl);
+            }
+            statusEl.textContent = `Translating to ${lang}...`;
+            statusEl.style.display = 'block';
+
+            try {
+                // STEP 1: Collect card data NOW — before any label changes
+                const cards = Array.from(document.querySelectorAll('.intel-card'));
+                const cardData = cards.map(card => {
+                    const title = card.querySelector('.intel-title')?.textContent?.trim() || '';
+                    const bullets = Array.from(card.querySelectorAll('.intel-section ul li')).map(li => li.textContent.trim()).filter(Boolean);
+                    // Sections: [0]=bullets section, [1]=Who is Affected, [2]=Why It Matters
+                    const secs = card.querySelectorAll('.intel-section');
+                    const affected = secs[1]?.querySelector('p')?.textContent?.trim() || '';
+                    const why = secs[2]?.querySelector('p')?.textContent?.trim() || '';
+                    return { title, bullets, why, affected };
+                });
+
+                // STEP 2 & 3: Translate in batches of 6 cards
+                statusEl.textContent = `Calling translation API...`;
+                const validCards = cardData.filter(c => c.title);
+                let translatedCards = validCards.slice(); // Copy
+
+                if (validCards.length > 0) {
+                    const chunkSize = 6;
+                    for (let i = 0; i < validCards.length; i += chunkSize) {
+                        const chunk = validCards.slice(i, i + chunkSize);
+                        try {
+                            const resp = await fetch('/api/translate-node', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ stories: chunk, lang })
+                            });
+                            const data = await resp.json();
+                            if (data.status === 'success' && data.translated_stories?.length) {
+                                for (let j = 0; j < data.translated_stories.length; j++) {
+                                    if (data.translated_stories[j]) {
+                                        translatedCards[i + j] = data.translated_stories[j];
+                                    }
+                                }
+                            }
+                        } catch (e) { console.error('Translation API failed:', e); }
+                    }
+                }
+
+                // STEP 3: Update DOM — titles, bullets, why, affected
+                statusEl.textContent = `Updating page...`;
+                let cardIdx = 0;
+                cards.forEach(card => {
+                    const orig = cardData[cards.indexOf(card)];
+                    if (!orig || !orig.title) return;
+                    const t = translatedCards[cardIdx++] || orig;
+
+                    const titleEl = card.querySelector('.intel-title');
+                    if (titleEl && t.title) titleEl.textContent = t.title;
+
+                    const bulletEls = card.querySelectorAll('.intel-section ul li');
+                    if (t.bullets) bulletEls.forEach((el, i) => { if (t.bullets[i]) el.textContent = t.bullets[i]; });
+
+                    const secs = card.querySelectorAll('.intel-section');
+                    if (secs[1] && t.affected) { const p = secs[1].querySelector('p'); if (p) p.textContent = t.affected; }
+                    if (secs[2] && t.why) { const p = secs[2].querySelector('p'); if (p) p.textContent = t.why; }
+                });
+
+                // STEP 4: Apply static h4 labels
+                const lm = LANG_LABELS[lang];
+                if (lm) {
+                    document.querySelectorAll('.intel-section h4').forEach(h4 => {
+                        if (h4.textContent.includes('Who is Affected') || h4.textContent.includes('WHO IS AFFECTED')) h4.innerHTML = lm.aff;
+                        else if (h4.textContent.includes('Why It Matters') || h4.textContent.includes('WHY IT MATTERS')) h4.innerHTML = lm.why;
+                    });
+                }
+
+                // STEP 5: Translate brief + trending titles
+                statusEl.textContent = `Translating briefs...`;
+                await translateSimpleEls('.brief-title', lang);
+                await translateSimpleEls('.trend-card h4', lang);
+
+                // STEP 6: Fetch state news
+                await fetchAndAppendStateNews(lang);
+
+                statusEl.textContent = `✅ Translation complete!`;
+                setTimeout(() => { if (statusEl) statusEl.style.display = 'none'; }, 3000);
+
+            } catch (err) {
+                console.error('Translation error:', err);
+                statusEl.textContent = '❌ Translation error. See console.';
+                setTimeout(() => { if (statusEl) statusEl.style.display = 'none'; }, 4000);
+            }
+
+            isTranslating = false;
+            if (spinner) spinner.style.display = 'none';
+            if (select) select.disabled = false;
+        }
+
+        // Translate simple text-only elements by selector
+        async function translateSimpleEls(selector, lang) {
+            const els = Array.from(document.querySelectorAll(selector)).filter(el => el.textContent.trim());
+            if (!els.length) return;
+
+            const chunkSize = 15; // Raised from 5: Google fallback scales well
+            for (let i = 0; i < els.length; i += chunkSize) {
+                const chunkEls = els.slice(i, i + chunkSize);
+                try {
+                    const resp = await fetch('/api/translate-node', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ stories: chunkEls.map(el => ({ title: el.textContent.trim() })), lang })
+                    });
+                    const d = await resp.json();
+                    if (d.status === 'success') {
+                        chunkEls.forEach((el, j) => {
+                            if (d.translated_stories[j]?.title) {
+                                el.textContent = d.translated_stories[j].title;
+                            }
+                        });
+                    }
+                } catch (e) { }
+            }
+        }
+
+        // Aliases kept for fetchAndAppendStateNews compatibility
+        const translateUIElements = async () => { };
+        const translateBriefAndTrending = async () => { };
+
+
+        async function fetchAndAppendStateNews(lang) {
+            const grid = document.querySelector('.headlines-grid');
+            if (!grid) return;
+
+            // Language-specific header labels
+            const regionHeaders = {
+                'Telugu': '📍 తెలుగు రాష్ట్రాల వార్తలు',
+                'Hindi': '📍 हिंदी प्रदेशों की खबरें',
+                'Tamil': '📍 தமிழ் மாநில செய்திகள்',
+                'Kannada': '📍 ಕನ್ನಡ ರಾಜ್ಯ ಸುದ್ದಿ',
+                'Malayalam': '📍 മലയാളം സംസ്ഥാന വാർത്തകൾ',
+                'Bengali': '📍 বাংলা রাজ্যের খবর',
+                'Gujarati': '📍 ગુજરાત રાજ્ય સમાચાર',
+                'Marathi': '📍 मराठी राज्य बातम्या',
+            };
+            const headerLabel = regionHeaders[lang] || `📍 ${lang} Regional Intelligence`;
+
+            // Show loading placeholder
+            const loadingEl = document.createElement('div');
+            loadingEl.id = 'state-news-loading';
+            loadingEl.style.cssText = 'grid-column: 1 / -1; text-align:center; margin:2rem 0; color:var(--accent-blue); font-weight:700;';
+            loadingEl.textContent = `${headerLabel} — Loading...`;
+            grid.appendChild(loadingEl);
+
+            try {
+                const resp = await fetch('/api/state-news', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ lang: lang, stories: [] })
+                });
+                const data = await resp.json();
+
+                // Remove loading placeholder
+                const loading = document.getElementById('state-news-loading');
+                if (loading) loading.remove();
+
+                if (data.status === 'success' && data.stories && data.stories.length > 0) {
+                    // Section header
+                    const stateSection = document.createElement('div');
+                    stateSection.style.cssText = 'grid-column: 1 / -1; margin-top: 2.5rem; padding-top: 1.5rem; border-top: 1px solid var(--border);';
+                    stateSection.innerHTML = `<div class="section-header">
+                        <h2 class="section-title" style="color:var(--accent-blue)">${headerLabel}</h2>
+                        <span style="color:var(--accent-green); font-size:0.75rem; font-weight:700; background:rgba(0,255,0,0.1); padding:4px 10px; border-radius:20px;">LIVE</span>
+                    </div>`;
+                    grid.appendChild(stateSection);
+
+                    data.stories.forEach(story => {
+                        // Avoid duplicates
+                        if (document.querySelector(`[data-url="${story.url}"]`)) return;
+
+                        const card = document.createElement('div');
+                        card.className = 'intel-card fade-in';
+                        card.setAttribute('data-url', story.url || '#');
+                        card.onclick = () => { if (story.url && story.url !== '#') window.open(story.url, '_blank'); };
+
+                        const imgUrl = story.image_url || '';
+                        const tag = story.tags ? story.tags[story.tags.length - 1] : lang;
+                        const bullets = (story.bullets || []).slice(0, 3).map(b => `<li>${b}</li>`).join('');
+
+                        card.innerHTML = `
+                            <div class="intel-card-image" style="position:relative; height:180px; background:${imgUrl ? `url('${imgUrl}') center/cover no-repeat` : 'linear-gradient(135deg,#1e293b,#0f172a)'}">
+                                <div style="position:absolute; top:0.75rem; left:0.75rem; background:var(--accent-blue); color:white; font-size:0.65rem; font-weight:800; padding:3px 8px; border-radius:4px; text-transform:uppercase;">${tag}</div>
+                            </div>
+                            <div class="intel-header" style="padding:1.25rem 1.5rem 0.5rem;">
+                                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.4rem;">
+                                    <span style="color:var(--accent-blue); font-size:0.75rem; font-weight:700;">${story.source_name || 'Regional Source'}</span>
+                                    <span style="color:var(--text-muted); font-size:0.75rem;">${story.time_ago || 'Just now'}</span>
+                                </div>
+                                <h3 class="intel-title" style="margin:0 0 0.5rem;">${story.title}</h3>
+                            </div>
+                            ${bullets ? `<div class="intel-section" style="padding:0 1.5rem;">
+                                <ul style="margin:0; padding-left:1.2rem;">${bullets}</ul>
+                            </div>` : ''}
+                            ${story.why ? `<div class="intel-section" style="padding:0.5rem 1.5rem 1.5rem; background:rgba(251,188,4,0.05); border-left:3px solid var(--accent-gold);">
+                                <h4 style="color:var(--accent-gold); margin:0 0 0.3rem; font-size:0.8rem;">⚡ Why It Matters</h4>
+                                <p style="font-size:0.85rem; color:var(--text-secondary);">${story.why}</p>
+                            </div>` : ''}
+                        `;
+                        grid.appendChild(card);
+                    });
+                } else {
+                    // Remove loading el cleanly if no results
+                    const l = document.getElementById('state-news-loading');
+                    if (l) l.remove();
+                }
+            } catch (err) {
+                console.error("Failed to fetch state news:", err);
+                const l = document.getElementById('state-news-loading');
+                if (l) l.remove();
+            }
+        }
+
+    </script>
+    <!-- Mobile Navigation Overlay -->
+    <div class="nav-mask" id="nav-mask" onclick="toggleMobileMenu()"></div>
+    <div class="mobile-nav-overlay" id="mobile-nav-overlay">
+        <div class="mobile-nav-close" onclick="toggleMobileMenu()">×</div>
+        <a href="/dashboard" class="mobile-nav-link">🏠 Home</a>
+        <a href="/saved" class="mobile-nav-link">🔖 Saved</a>
+        <a href="/universe" class="mobile-nav-link">🌌 Universe</a>
+        <a href="/student-news" class="mobile-nav-link" style="color: var(--accent-blue);">🎓 For Students</a>
+        <a href="/personal-agent" class="mobile-nav-link" style="color: var(--accent-purple);">🤖 Personal AI</a>
+        <a href="/crystal-ball" class="mobile-nav-link" style="color: var(--accent-cyan);">🔮 Crystal Ball</a>
+        <hr style="border: none; border-top: 1px solid var(--border-color); width: 100%;">
+        <a href="/history" class="mobile-nav-link">📖 History</a>
+        <a href="/mock-test" class="mobile-nav-link">📝 Mock Test</a>
+    </div>
+
+    <script>
+        function toggleMobileMenu() {
+            const overlay = document.getElementById('mobile-nav-overlay');
+            const mask = document.getElementById('nav-mask');
+            overlay.classList.toggle('active');
+            mask.classList.toggle('active');
+            
+            // Prevent body scroll when menu is open
+            if (overlay.classList.contains('active')) {
+                document.body.style.overflow = 'hidden';
+            } else {
+                document.body.style.overflow = '';
+            }
+        }
+    </script>
 </body>
 
 </html>

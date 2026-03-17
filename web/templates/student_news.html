@@ -6,7 +6,43 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>For Students</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css?v=4.8">
     <style>
+        /* Mobile Menu Toggle */
+        .mobile-menu-btn {
+            display: none;
+            background: none;
+            border: none;
+            color: var(--text-main);
+            font-size: 1.5rem;
+            cursor: pointer;
+            z-index: 1003;
+        }
+
+        @media (max-width: 768px) {
+            .mobile-menu-btn {
+                display: block;
+            }
+            .nav-center {
+                display: none !important;
+            }
+            .nav-container {
+                padding: 1rem 1rem;
+            }
+            .page-title {
+                font-size: 2rem !important;
+            }
+            .page-subtitle {
+                font-size: 1rem !important;
+            }
+            .main-container {
+                padding: 0 1rem !important;
+                margin-top: 20px !important;
+            }
+            .trend-grid {
+                grid-template-columns: 1fr !important;
+            }
+        }
         :root {
             --bg-dark: #0f172a;
             --bg-card: rgba(30, 41, 59, 0.7);
@@ -356,10 +392,11 @@
 
 <body>
     <nav class="nav-container">
-        <a href="/dashboard" class="logo">
+        <a href="/dashboard" class="logo" style="display: flex; gap: 0.25rem;">
             <span style="color: #FFFFFF;">UNI</span>
             <span style="color: #0047AB;">INTEL</span>
         </a>
+        <button class="mobile-menu-btn" onclick="toggleMobileMenu()">☰</button>
         <div class="nav-center">
             <a href="/dashboard" class="nav-link">Home</a>
             <a href="/dashboard?country=India" class="nav-link">India Node</a>
@@ -367,8 +404,29 @@
             <a href="/student-news" class="nav-link" style="color: var(--accent-blue); font-weight: 600;">FOR
                 STUDENTS</a>
             <a href="/personal-agent" class="nav-link" style="color: var(--accent-purple); font-weight: 600;">PERSONAL AI NEWS</a>
+            <a href="/crystal-ball" class="nav-link" style="color: var(--accent-cyan); font-weight: 600;">CRYSTAL BALL</a>
+        </div>
+        <div id="global-lang-switcher" style="display:flex; align-items:center; gap:0.4rem; background: rgba(0,0,0,0.3); padding: 5px 12px; border-radius: 20px; border: 1px solid var(--border-color); backdrop-filter: blur(5px);">
+            <span style="font-size: 0.8rem;">🌐</span>
+            <select id="lang-select" onchange="changeLang(this.value)" style="background:transparent; color:var(--text-main); border:none; font-size:0.8rem; cursor:pointer; outline:none; font-weight: 700; text-transform: uppercase;">
+                <option value="english" {% if not selected_lang or selected_lang == 'english' %}selected{% endif %}>EN</option>
+                <option value="Telugu" {% if selected_lang == 'Telugu' %}selected{% endif %}>TE</option>
+                <option value="Hindi" {% if selected_lang == 'Hindi' %}selected{% endif %}>HI</option>
+                <option value="Spanish" {% if selected_lang == 'Spanish' %}selected{% endif %}>ES</option>
+                <option value="Arabic" {% if selected_lang == 'Arabic' %}selected{% endif %}>AR</option>
+                <option value="Japanese" {% if selected_lang == 'Japanese' %}selected{% endif %}>JP</option>
+                <option value="French" {% if selected_lang == 'French' %}selected{% endif %}>FR</option>
+            </select>
         </div>
     </nav>
+    <script>
+        function changeLang(val) {
+            const url = new URL(window.location.href);
+            if (val && val !== 'english') url.searchParams.set('lang', val);
+            else url.searchParams.delete('lang');
+            window.location.href = url.toString();
+        }
+    </script>
 
     <div class="main-container">
         <div class="page-header">
@@ -572,6 +630,34 @@
             } catch (error) {
                 console.error("Chat failed:", error);
                 alert("Communication with AI Node failed.");
+            }
+        }
+    </script>
+    <!-- Mobile Navigation Overlay -->
+    <div class="nav-mask" id="nav-mask" onclick="toggleMobileMenu()"></div>
+    <div class="mobile-nav-overlay" id="mobile-nav-overlay">
+        <div class="mobile-nav-close" onclick="toggleMobileMenu()">×</div>
+        <a href="/dashboard" class="mobile-nav-link">🏠 Home</a>
+        <a href="/saved" class="mobile-nav-link">🔖 Saved</a>
+        <a href="/universe" class="mobile-nav-link">🌌 Universe</a>
+        <a href="/student-news" class="mobile-nav-link" style="color: var(--accent-blue);">🎓 For Students</a>
+        <a href="/personal-agent" class="mobile-nav-link" style="color: var(--accent-purple);">🤖 Personal AI</a>
+        <a href="/crystal-ball" class="mobile-nav-link" style="color: var(--accent-cyan);">🔮 Crystal Ball</a>
+        <hr style="border: none; border-top: 1px solid var(--border-color); width: 100%;">
+        <a href="/history" class="mobile-nav-link">📖 History</a>
+    </div>
+
+    <script>
+        function toggleMobileMenu() {
+            const overlay = document.getElementById('mobile-nav-overlay');
+            const mask = document.getElementById('nav-mask');
+            overlay.classList.toggle('active');
+            mask.classList.toggle('active');
+            
+            if (overlay.classList.contains('active')) {
+                document.body.style.overflow = 'hidden';
+            } else {
+                document.body.style.overflow = '';
             }
         }
     </script>

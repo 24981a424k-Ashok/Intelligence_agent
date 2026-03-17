@@ -119,21 +119,89 @@
     </style>
 </head>
 <body>
-    <a href="/dashboard" class="back-link">← RETURN TO NODES</a>
+    <div class="nav-links" style="position: absolute; top: 2rem; right: 2rem; display: flex; gap: 1.5rem; align-items: center; z-index: 10;">
+        <a href="/dashboard" style="color: white; text-decoration: none; font-weight: 600;">Home</a>
+        <a href="/student-news" style="color: white; text-decoration: none; font-weight: 600;">Students</a>
+        <a href="/personal-agent" style="color: white; text-decoration: none; font-weight: 600;">Personal AI</a>
+        <div id="global-lang-switcher" style="display:flex; align-items:center; gap:0.4rem; background: rgba(0,0,0,0.3); padding: 5px 12px; border-radius: 20px; border: 1px solid var(--border-glow); backdrop-filter: blur(5px);">
+            <span style="font-size: 0.8rem;">🌐</span>
+            <select id="lang-select" onchange="changeLang(this.value)" style="background:transparent; color:var(--text-primary); border:none; font-size:0.8rem; cursor:pointer; outline:none; font-weight: 700; text-transform: uppercase;">
+                <option value="english" {% if not selected_lang or selected_lang == 'english' %}selected{% endif %}>EN</option>
+                <option value="Telugu" {% if selected_lang == 'Telugu' %}selected{% endif %}>TE</option>
+                <option value="Hindi" {% if selected_lang == 'Hindi' %}selected{% endif %}>HI</option>
+                <option value="Spanish" {% if selected_lang == 'Spanish' %}selected{% endif %}>ES</option>
+                <option value="Arabic" {% if selected_lang == 'Arabic' %}selected{% endif %}>AR</option>
+                <option value="Japanese" {% if selected_lang == 'Japanese' %}selected{% endif %}>JP</option>
+                <option value="French" {% if selected_lang == 'French' %}selected{% endif %}>FR</option>
+            </select>
+        </div>
+    </div>
+    <script>
+        function changeLang(val) {
+            const url = new URL(window.location.href);
+            if (val && val !== 'english') url.searchParams.set('lang', val);
+            else url.searchParams.delete('lang');
+            window.location.href = url.toString();
+        }
+    </script>
 
     <div class="hero">
         <div class="crystal-glow"></div>
-        <div class="crystal-ball-container">
+        <div class="crystal-ball-container" id="prediction-trigger" style="cursor: pointer;" title="Click for new prediction">
             <svg width="150" height="150" viewBox="0 0 24 24" fill="white">
                 <path d="M12 2C6.47 2 2 6.47 2 12s4.47 10 10 10 10-4.47 10-10S17.53 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z"/>
             </svg>
         </div>
         <h1>THE AI CRYSTAL BALL</h1>
         <div class="tagline">Predictive Geopolitics & Market Intelligence</div>
+        <div id="loading-prediction" style="display:none; color:var(--accent-cyan); font-weight:800; margin-top:20px;">AI NODE PROCESSING...</div>
     </div>
 
     <div class="content">
-        <div class="grid">
+        <div id="prediction-results" class="grid-main" style="margin-bottom: 3rem;">
+            <!-- Dynamic Predictions -->
+            <div class="prediction-card" style="grid-column: 1/-1; text-align: center; border: 2px solid var(--accent-purple);">
+                <h3 id="pred-headline">Initializing AI Node...</h3>
+                <p id="pred-text" style="color:#94a3b8; font-size:1.1rem; margin-top:1rem;">Click the crystal ball to generate a fresh predictive intelligence report based on current global trends.</p>
+                <div id="pred-impact" style="margin-top:1.5rem; font-weight:600; color:var(--accent-cyan); display:none;"></div>
+                <div id="pred-confidence" style="margin-top:0.5rem; font-size:0.8rem; color:#64748b; display:none;"></div>
+            </div>
+        </div>
+        
+        <script>
+            document.getElementById('prediction-trigger').addEventListener('click', generatePrediction);
+            
+            async function generatePrediction() {
+                const trigger = document.getElementById('prediction-trigger');
+                const loader = document.getElementById('loading-prediction');
+                
+                trigger.style.animation = 'spin 1.5s linear infinite';
+                loader.style.display = 'block';
+                
+                try {
+                    const resp = await fetch('/api/get-prediction');
+                    const data = await resp.json();
+                    
+                    if (data.status === 'success') {
+                        const p = data.prediction;
+                        document.getElementById('pred-headline').innerText = p.headline;
+                        document.getElementById('pred-text').innerText = p.prediction_text;
+                        document.getElementById('pred-impact').innerText = "MARKET IMPACT: " + p.market_impact;
+                        document.getElementById('pred-impact').style.display = 'block';
+                        document.getElementById('pred-confidence').innerText = "AI CONFIDENCE: " + p.confidence_level;
+                        document.getElementById('pred-confidence').style.display = 'block';
+                    }
+                } catch (e) {
+                    console.error(e);
+                } finally {
+                    trigger.style.animation = 'float 4s ease-in-out infinite';
+                    loader.style.display = 'none';
+                }
+            }
+        </script>
+        
+        <h2 style="text-align: center; margin-top: 5rem; font-family: 'Outfit';">BASE-LEVEL TRENDS</h2>
+        <div class="grid" style="margin-top: 2rem;">
             <!-- Prediction 1 -->
             <div class="prediction-card">
                 <div style="display:flex; justify-content:space-between; align-items:center;">

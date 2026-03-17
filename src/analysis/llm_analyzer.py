@@ -497,9 +497,20 @@ IMPORTANT: Output ONLY valid JSON.
         """
         try:
             from openai import AsyncOpenAI
-            client = AsyncOpenAI(api_key=self.api_key)
+            from src.config import settings
+
+            crystal_key = getattr(settings, 'GROQ_KEY_CRYSTAL_BALL', None)
+            
+            if crystal_key:
+                client = AsyncOpenAI(api_key=crystal_key, base_url="https://api.groq.com/openai/v1")
+                model = "llama-3.3-70b-versatile"
+                logger.info("Using specialized Groq key for AI Crystal Ball")
+            else:
+                client = AsyncOpenAI(api_key=self.api_key)
+                model = "gpt-4o-mini"
+            
             response = await client.chat.completions.create(
-                model="gpt-4o-mini",
+                model=model,
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.7
             )

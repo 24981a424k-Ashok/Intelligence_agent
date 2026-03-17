@@ -27,6 +27,22 @@ GNEWS_API_KEY = os.getenv("GNEWS_API_KEY")
 GNEWS_API_KEY_2 = os.getenv("GNEWS_API_KEY_2") # Secondary key for higher quota
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
+# Groq API Keys
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+GROQ_API_KEYS = [
+    os.getenv("GROQ_API_KEY_1"),
+    os.getenv("GROQ_API_KEY_2"),
+    os.getenv("GROQ_API_KEY_3")
+]
+GROQ_API_KEYS = [k for k in GROQ_API_KEYS if k]
+
+# Specialized Groq Keys
+GROQ_KEY_TELUGU = os.getenv("GROQ_KEY_TELUGU")
+GROQ_KEY_HINDI = os.getenv("GROQ_KEY_HINDI")
+GROQ_KEY_MALAYALAM = os.getenv("GROQ_KEY_MALAYALAM")
+GROQ_KEY_TAMIL = os.getenv("GROQ_KEY_TAMIL")
+GROQ_KEY_CRYSTAL_BALL = os.getenv("GROQ_KEY_CRYSTAL_BALL")
+
 # Translation Setting
 TRANSLATION_KEYS = [
     os.getenv("TRANSLATION_OPENAI_KEY_1"),

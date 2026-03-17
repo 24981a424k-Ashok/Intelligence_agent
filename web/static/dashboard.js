@@ -3,6 +3,19 @@
  * Handles "See More" functionality, dark/light mode toggle, and breaking news display
  */
 
+// Initialize UI_DICT from embedded JSON
+try {
+    const uiDataElement = document.getElementById('ui-data');
+    if (uiDataElement) {
+        window.UI_DICT = JSON.parse(uiDataElement.textContent);
+    } else {
+        window.UI_DICT = window.UI_DICT || {};
+    }
+} catch (e) {
+    console.error("Failed to parse UI_DICT:", e);
+    window.UI_DICT = window.UI_DICT || {};
+}
+
 // ===== IMAGE FALLBACK HELPER =====
 function getCategoryFallback(category, seed = '', index = 0) {
     const images = {
@@ -270,7 +283,16 @@ async function toggleSeeMore(btn, selector) {
 
         // Calculate current items based on the selector
         const currentItems = container.querySelectorAll(selector).length;
-        const response = await fetch(`/api/more-stories/${encodeURIComponent(category)}/${currentItems}${country ? '?country=' + country : ''}`);
+        // Retrieve active language if available (via URL or default)
+        const urlParams = new URLSearchParams(window.location.search);
+        let langQuery = urlParams.get('lang') || 'english';
+
+        let fetchUrl = `/api/more-stories/${encodeURIComponent(category)}/${currentItems}?lang=${langQuery}`;
+        if (country) {
+            fetchUrl += `&country=${country}`;
+        }
+
+        const response = await fetch(fetchUrl);
 
         if (!response.ok) throw new Error("API Failure");
         const data = await response.json();
@@ -287,17 +309,17 @@ async function toggleSeeMore(btn, selector) {
                     div.onclick = function () { if (window.handleCardClick) window.handleCardClick(this); else window.open(story.url, '_blank'); };
 
                     div.innerHTML = `
-                    <div class="intel-card-image" style="background: linear-gradient(135deg, #1e293b, #0f172a);">
-                        <button class="save-btn" onclick="saveArticle(event, '${story.id}')">
-                            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-                                <path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z" />
-                            </svg>
-                        </button>
-                    </div>
+            < div class="intel-card-image" style = "background: linear-gradient(135deg, #1e293b, #0f172a);" >
+                <button class="save-btn" onclick="saveArticle(event, '${story.id}')">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                        <path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z" />
+                    </svg>
+                </button>
+                    </div >
                     <div class="intel-header">
                         <div style="display:flex; justify-content:space-between; margin-bottom:0.5rem;">
-                            <span style="color:var(--accent-blue); font-size:0.8rem; font-weight:700;">VERIFIED: ${story.source_name}</span>
-                            <span style="color:var(--text-secondary); font-size:0.8rem;">${story.bias || 'Neutral'}</span>
+                            <span style="color:var(--accent-blue); font-size:0.8rem; font-weight:700;">${window.UI_DICT ? window.UI_DICT.verified || 'VERIFIED:' : 'VERIFIED:'} ${story.source_name}</span>
+                            <span style="color:var(--text-secondary); font-size:0.8rem;">${story.bias === 'Neutral' ? (window.UI_DICT ? window.UI_DICT.neutral || 'Neutral' : 'Neutral') : (story.bias || (window.UI_DICT ? window.UI_DICT.neutral || 'Neutral' : 'Neutral'))}</span>
                         </div>
                         <h3 class="intel-title">${story.title}</h3>
                         <div style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-bottom:1rem;">
@@ -310,17 +332,17 @@ async function toggleSeeMore(btn, selector) {
                         </ul>
                     </div>
                     <div class="intel-section" style="background:rgba(59, 130, 246, 0.05); border-left:3px solid var(--accent-blue);">
-                        <h4 style="color:var(--accent-blue);">👥 Who is Affected</h4>
+                        <h4 style="color:var(--accent-blue);">${window.UI_DICT ? window.UI_DICT.who_affected || '👥 Who is Affected' : '👥 Who is Affected'}</h4>
                         <p style="font-size:0.9rem; color:#cbd5e1;">${story.affected || 'General Public'}</p>
                     </div>
                     <div class="intel-section" style="background:rgba(251, 188, 4, 0.05); border-left:3px solid var(--accent-gold);">
-                        <h4 style="color:var(--accent-gold);">⚡ Why It Matters</h4>
+                        <h4 style="color:var(--accent-gold);">${window.UI_DICT ? window.UI_DICT.why_matters || '⚡ Why It Matters' : '⚡ Why It Matters'}</h4>
                         <p style="font-size:0.9rem; color:#cbd5e1;">${story.why || 'Significant development.'}</p>
                     </div>
                     <div class="intel-footer">
-                        <span style="font-size:0.8rem; color:var(--text-secondary);">AI Analysis • ${story.time_ago || 'Just Now'}</span>
+                        <span style="font-size:0.8rem; color:var(--text-secondary);">${window.UI_DICT ? window.UI_DICT.ai_analysis || 'AI Analysis' : 'AI Analysis'} • ${story.time_ago || (window.UI_DICT ? window.UI_DICT.just_now || 'Just Now' : 'Just Now')}</span>
                     </div>
-                `;
+        `;
                 } else {
                     // Formatting for Trending (trend-card)
                     div.className = 'trend-card fade-in';
@@ -329,13 +351,13 @@ async function toggleSeeMore(btn, selector) {
                     div.onclick = function () { if (window.handleCardClick) window.handleCardClick(this); else window.open(story.url, '_blank'); };
 
                     div.innerHTML = `
-                    <span class="trend-badge">MORE INTEL</span>
+                    <span class="trend-badge">${window.UI_DICT ? window.UI_DICT.more_intel || 'MORE INTEL' : 'MORE INTEL'}</span>
                     <h4 style="margin:0 0 0.5rem 0; font-size:1rem; color: var(--text-primary); font-weight: 600;">${story.title}</h4>
                     <div style="display:flex; justify-content:space-between; font-size:0.75rem; color:var(--text-secondary); margin-top: 1rem;">
                         <span>${story.source_name}</span>
-                        <span>ANALYSIS</span>
+                        <span>${window.UI_DICT ? window.UI_DICT.analysis || 'ANALYSIS' : 'ANALYSIS'}</span>
                     </div>
-                `;
+        `;
                 }
                 targetContainer.appendChild(div);
             });
@@ -388,12 +410,12 @@ function initializeThemeToggle() {
     themeToggle.className = 'theme-toggle-btn';
     themeToggle.setAttribute('aria-label', 'Toggle theme');
     themeToggle.innerHTML = currentTheme === 'dark'
-        ? `<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
-               <path d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/>
-           </svg>`
-        : `<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
-               <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/>
-           </svg>`;
+        ? `<svg viewBox = "0 0 24 24" width = "20" height = "20" fill = "currentColor" >
+            <path d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+           </svg > `
+        : `<svg viewBox = "0 0 24 24" width = "20" height = "20" fill = "currentColor" >
+            <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" />
+           </svg > `;
 
     themeToggle.onclick = function () {
         const theme = document.documentElement.getAttribute('data-theme');
@@ -404,12 +426,12 @@ function initializeThemeToggle() {
 
         // Update icon
         themeToggle.innerHTML = newTheme === 'dark'
-            ? `<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
-                   <path d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/>
-               </svg>`
-            : `<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
-                   <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/>
-               </svg>`;
+            ? `<svg viewBox = "0 0 24 24" width = "20" height = "20" fill = "currentColor" >
+            <path d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+               </svg > `
+            : `<svg viewBox = "0 0 24 24" width = "20" height = "20" fill = "currentColor" >
+            <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" />
+               </svg > `;
     };
 
     // Add to header-right
@@ -454,10 +476,10 @@ function updateBreakingNewsSection(breakingNews) {
         const safeHeadline = headline.replace(/'/g, "\\'");
 
         return `
-        <div class="breaking-card-emergency ${isHidden}" 
+            <div class="breaking-card-emergency ${isHidden}"
              onclick="window.open('${item.url || '#'}', '_blank')"
              style="${displayStyle}">
-            <div class="breaking-badge">BREAKING NEWS</div>
+            <div class="breaking-badge">${window.UI_DICT ? window.UI_DICT.breaking_news || 'BREAKING NEWS' : 'BREAKING NEWS'}</div>
             
             <div class="breaking-img-top" style="background-image: url('${imgUrl}');">
                  <img src="${item.image_url || '#'}" style="display:none;" 
@@ -466,23 +488,23 @@ function updateBreakingNewsSection(breakingNews) {
 
             <h3 class="breaking-headline">${headline}</h3>
             <div class="breaking-section">
-                <div class="breaking-subhead">📌 What Just Happened:</div>
+                <div class="breaking-subhead">${window.UI_DICT ? window.UI_DICT.what_happened || '📌 What Just Happened:' : '📌 What Just Happened:'}</div>
                 <ul class="breaking-bullets">
                     <li>${item.summary || item.headline || item.title}</li>
                 </ul>
             </div>
 
             <div class="breaking-impact-box">
-                <div class="breaking-subhead" style="color:#b45309;">⚡ Why This Matters:</div>
-                <p>${item.why || item.why_matters || "Significant development requiring immediate attention."}</p>
+                <div class="breaking-subhead" style="color:#b45309;">${window.UI_DICT ? window.UI_DICT.why_this_matters || '⚡ Why This Matters:' : '⚡ Why This Matters:'}</div>
+                <p>${item.why || item.why_matters || (window.UI_DICT ? window.UI_DICT.significant_dev_req || "Significant development requiring immediate attention." : "Significant development requiring immediate attention.")}</p>
             </div>
 
             <div class="breaking-footer">
-                <span>🔒 ${item.confidence || 'High'} Confidence</span>
-                <span>⏱ ${item.time_ago || 'Just now'}</span>
+                <span>🔒 ${item.confidence || (window.UI_DICT ? window.UI_DICT.high_confidence || 'High Confidence' : 'High Confidence')}</span>
+                <span>⏱ ${item.time_ago || (window.UI_DICT ? window.UI_DICT.just_now || 'Just now' : 'Just now')}</span>
             </div>
-        </div>
-    `}).join('');
+        </div >
+            `}).join('');
 
     itemsContainer.innerHTML = newCardsHtml;
     console.log(`Live Update: ${breakingNews.length} breaking stories refreshed.`);
@@ -516,30 +538,30 @@ async function openArticleModal(id) {
     document.body.style.overflow = 'hidden';
 
     try {
-        const res = await fetch(`/api/article/${id}`);
+        const res = await fetch(`/ api / article / ${id} `);
         if (!res.ok) throw new Error("Artifact not found");
 
         const data = await res.json();
 
         // Populate Modal
-        document.getElementById('modal-title').innerText = data.title || "Intelligence Artifact";
+        document.getElementById('modal-title').innerText = data.title || window.UI_DICT.intelligence_artifact || "Intelligence Artifact";
         const heroImg = document.getElementById('modal-image');
         if (heroImg) heroImg.style.backgroundImage = `url('${data.image_url}')`;
 
         const sourceBadge = document.getElementById('modal-source');
-        if (sourceBadge) sourceBadge.innerText = `VERIFIED: ${data.source_name || 'Global Source'}`;
+        if (sourceBadge) sourceBadge.innerText = `${window.UI_DICT.verified || 'VERIFIED:'} ${data.source_name || window.UI_DICT.global_source || 'Global Source'} `;
 
         const timeText = document.getElementById('modal-time');
-        if (timeText) timeText.innerText = data.time_ago || 'Recently';
+        if (timeText) timeText.innerText = data.time_ago || window.UI_DICT.recently || 'Recently';
 
         const biasBadge = document.getElementById('modal-bias');
-        if (biasBadge) biasBadge.innerText = data.bias_rating || 'Neutral';
+        if (biasBadge) biasBadge.innerText = data.bias_rating || window.UI_DICT.neutral || 'Neutral';
 
         const affectedText = document.getElementById('modal-affected');
-        if (affectedText) affectedText.innerText = data.who_is_affected || 'Analyzing global implications...';
+        if (affectedText) affectedText.innerText = data.who_is_affected || window.UI_DICT.analyzing_demo || 'Analyzing global implications...';
 
         const whyText = document.getElementById('modal-why');
-        if (whyText) whyText.innerText = data.why_it_matters || 'Evaluating strategic significance.';
+        if (whyText) whyText.innerText = data.why_it_matters || window.UI_DICT.evaluating_strat || 'Evaluating strategic significance.';
 
         const sourceLink = document.getElementById('modal-source-link');
         if (sourceLink) sourceLink.href = data.url || '#';
@@ -585,7 +607,7 @@ async function openArticleModal(id) {
     } catch (e) {
         console.error("Failed to load article details", e);
         // Fallback: If we fail to fetch, just open the URL if we can find it
-        const card = document.querySelector(`.intel-card[data-id="${id}"]`);
+        const card = document.querySelector(`.intel - card[data - id="${id}"]`);
         if (card && card.dataset.url && card.dataset.url !== '#') {
             window.open(card.dataset.url, '_blank');
         } else {
@@ -602,82 +624,6 @@ function closeArticleModal() {
         document.body.style.overflow = '';
     }
     currentModalArticleId = null;
-    document.getElementById('chat-history').innerHTML = '';
-    document.getElementById('chat-input').value = '';
-}
-
-async function fetchGeopoliticalPrediction() {
-    const headlineEl = document.getElementById('prediction-headline');
-    const textEl = document.getElementById('prediction-text');
-    const marketEl = document.getElementById('prediction-market');
-    const confEl = document.getElementById('prediction-confidence');
-
-    if (!headlineEl) return;
-
-    try {
-        const res = await fetch('/api/geopolitics-prediction');
-        const data = await res.json();
-        
-        headlineEl.innerText = data.headline;
-        textEl.innerText = data.prediction_text;
-        marketEl.innerText = data.market_impact;
-        confEl.innerText = data.confidence_level;
-        confEl.style.color = data.confidence_level === 'High' ? 'var(--accent-green)' : 'var(--accent-gold)';
-    } catch (e) {
-        console.error("Prediction fetch failed", e);
-    }
-}
-
-async function sendChatMessage() {
-    if (!currentModalArticleId) return;
-    
-    const query = prompt("What would you like to know about this intelligence artifact?");
-    if (!query) return;
-
-    try {
-        const res = await fetch('/api/chat-article', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                article_id: currentModalArticleId,
-                query: query
-            })
-        });
-        const data = await res.json();
-        alert("AI Response: " + data.response);
-    } catch (e) {
-        console.error("Chat failed", e);
-        alert("Communication with AI Node failed.");
-    }
-}
-
-async function flagFakeNews() {
-    if (!currentModalArticleId) return;
-
-    const user = firebase.auth().currentUser;
-    if (!user) {
-        alert("Identification required to report. Please login.");
-        return;
-    }
-
-    if (!confirm("Are you sure you want to flag this intelligence as potentially fake? Our AI will perform a deep verification.")) return;
-
-    try {
-        const res = await fetch('/api/flag-article', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                firebase_uid: user.uid,
-                news_id: parseInt(currentModalArticleId),
-                reason: "Reported via Dashboard"
-            })
-        });
-        const data = await res.json();
-        alert(data.message);
-    } catch (e) {
-        console.error("Flagging failed", e);
-        alert("Network error. Could not submit report.");
-    }
 }
 
 async function saveArticleModal() {
@@ -769,7 +715,6 @@ document.addEventListener('DOMContentLoaded', function () {
     initializeSeeMore();
     initializeThemeToggle();
     initializeBreakingNewsRefresh();
-    fetchGeopoliticalPrediction();
 
     console.log('Dashboard enhancements initialized v4.1');
 });
@@ -809,7 +754,7 @@ function initSideTicker() {
         console.warn('Side Slider: No slides found.');
         return;
     }
-    console.log(`Side Slider: Found ${slides.length} slides. Starting cycle.`);
+    console.log(`Side Slider: Found ${slides.length} slides.Starting cycle.`);
 
     let currentIndex = 0;
 
@@ -908,12 +853,4 @@ document.addEventListener('DOMContentLoaded', () => {
     initializeTicker();
     initializeWeather();
     if (window.initializeSeeMore) window.initializeSeeMore();
-    
-    // Initialize AI Crystal Ball
-    fetchGeopoliticalPrediction();
 });
-function openChatFromCard(event, id) {
-    if (event) event.stopPropagation();
-    currentModalArticleId = id;
-    sendChatMessage();
-}

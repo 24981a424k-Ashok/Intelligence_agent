@@ -1,168 +1,172 @@
-import os
 import logging
 import random
 import json
+import asyncio
 from typing import List, Dict, Any, Union
-import openai
+from openai import AsyncOpenAI
 from src.config import settings
 
 logger = logging.getLogger(__name__)
 
+GROQ_BASE_URL = "https://api.groq.com/openai/v1"
+GROQ_MODEL = "llama-3.3-70b-versatile"
+
 class NewsTranslator:
     def __init__(self):
-        self.api_keys = settings.TRANSLATION_KEYS
-        self.cache_file = "translation_cache.json"
-        self._load_cache()
-        if not self.api_keys:
-            logger.warning("No translation API keys found in settings.")
+        # Support multiple Groq API keys for rotation to avoid rate limits
+        self.groq_keys = getattr(settings, 'GROQ_API_KEYS', [])
+        if not self.groq_keys:
+            # Fall back to single key
+            single = getattr(settings, 'GROQ_API_KEY', '')
+            if single:
+                self.groq_keys = [single]
+        
+        if not self.groq_keys:
+            logger.warning("No GROQ API keys found. Translation will be skipped.")
+        else:
+            logger.info(f"NewsTranslator initialized with {len(self.groq_keys)} Groq API key(s) for rotation.")
+        
+        # Cache one client per key
+        self._clients: Dict[str, AsyncOpenAI] = {}
 
-    def _load_cache(self):
-        try:
-            if os.path.exists(self.cache_file):
-                with open(self.cache_file, 'r', encoding='utf-8') as f:
-                    self.cache = json.load(f)
-            else:
-                self.cache = {}
-        except Exception as e:
-            logger.error(f"Failed to load translation cache: {e}")
-            self.cache = {}
+    def _get_client(self, target_lang: str = None) -> tuple:
+        """Return (AsyncOpenAI client, key_info) using a specialized or randomly selected Groq key."""
+        # 1. Check for specialized keys first
+        if target_lang:
+            lang_key = None
+            lang_name = target_lang.lower().strip()
+            if "telugu" in lang_name:
+                lang_key = getattr(settings, 'GROQ_KEY_TELUGU', None)
+            elif "hindi" in lang_name:
+                lang_key = getattr(settings, 'GROQ_KEY_HINDI', None)
+            elif "malayalam" in lang_name:
+                lang_key = getattr(settings, 'GROQ_KEY_MALAYALAM', None)
+            elif "tamil" in lang_name:
+                lang_key = getattr(settings, 'GROQ_KEY_TAMIL', None)
 
-    def _save_cache(self):
-        try:
-            with open(self.cache_file, 'w', encoding='utf-8') as f:
-                json.dump(self.cache, f, ensure_ascii=False, indent=2)
-        except Exception as e:
-            logger.error(f"Failed to save translation cache: {e}")
+            if lang_key:
+                if lang_key not in self._clients:
+                    self._clients[lang_key] = AsyncOpenAI(api_key=lang_key, base_url=GROQ_BASE_URL)
+                return self._clients[lang_key], f"Specialized ({target_lang})"
 
-    def _get_client(self):
-        if not self.api_keys:
-            return None
-        # Rotate keys randomly for simple load balancing/quota management
-        key = random.choice(self.api_keys)
-        return openai.OpenAI(api_key=key)
+        # 2. Fall back to rotation
+        if not self.groq_keys:
+            return None, "None"
+        
+        idx = random.randint(0, len(self.groq_keys) - 1)
+        key = self.groq_keys[idx]
+        if key not in self._clients:
+            self._clients[key] = AsyncOpenAI(api_key=key, base_url=GROQ_BASE_URL)
+        return self._clients[key], f"Key#{idx + 1}"
 
-    def translate_text(self, text: str, target_lang: str) -> str:
+    async def translate_text(self, text: str, target_lang: str) -> str:
+        """Translate a single piece of text to target_lang using Groq (Async)."""
         if not text or not target_lang or target_lang.lower() == 'english':
             return text
         
-        # Check cache
-        cache_key = f"{target_lang}:{text}"
-        if cache_key in self.cache:
-            return self.cache[cache_key]
-
-        client = self._get_client()
+        client, key_info = self._get_client(target_lang)
         if not client:
             return text
 
         try:
-            response = client.chat.completions.create(
-                model="gpt-3.5-turbo",
+            response = await client.chat.completions.create(
+                model=GROQ_MODEL,
                 messages=[
-                    {"role": "system", "content": f"You are a professional news translator. Translate the following news text into {target_lang}. Maintain the tone and nuances. Only return the translated text."},
+                    {
+                        "role": "system",
+                        "content": f"You are a professional news translator. Translate the following news text into {target_lang}. Return ONLY the translated text."
+                    },
                     {"role": "user", "content": text}
                 ],
-                temperature=0.3
+                temperature=0.2,
+                timeout=20
             )
-            result = response.choices[0].message.content.strip()
-            self.cache[cache_key] = result
-            self._save_cache()
-            return result
+            return response.choices[0].message.content.strip()
         except Exception as e:
-            logger.error(f"Translation failed for '{text[:50]}...': {e}")
+            if "rate_limit" in str(e).lower():
+                logger.warning(f"Rate limit hit on {key_info} during translation of '{text[:30]}...'. Trying another key next time.")
+            else:
+                logger.error(f"Translation failed on {key_info}: {e}")
             return text
 
-    def translate_stories(self, stories: List[Dict[str, Any]], target_lang: str) -> List[Dict[str, Any]]:
+    async def translate_stories(self, stories: List[Dict[str, Any]], target_lang: str) -> List[Dict[str, Any]]:
+        """Translate key fields of multiple stories to target_lang (Async)."""
         if not stories or not target_lang or target_lang.lower() == 'english':
             return stories
 
-        # Deep copy to avoid mutating original
         translated_stories = json.loads(json.dumps(stories))
         
-        # Collect all unique texts that need translation and are NOT in cache
-        texts_to_translate = []
-        mapping = [] # (story_index, field_name, list_index)
-
-        for i, story in enumerate(translated_stories):
-            # Normal fields
-            for field in ['title', 'why', 'affected', 'headline']:
-                val = story.get(field)
-                if val:
-                    cache_key = f"{target_lang}:{val}"
-                    if cache_key in self.cache:
-                        story[field] = self.cache[cache_key]
-                    else:
-                        texts_to_translate.append(val)
-                        mapping.append((i, field, None))
-            
-            # Bullet points
+        # Parallelize translation of stories for better performance
+        async def translate_single_story(story):
+            # Translate bullet lists
             if 'bullets' in story and story['bullets']:
-                for idx, b in enumerate(story['bullets']):
-                    if b:
-                        cache_key = f"{target_lang}:{b}"
-                        if cache_key in self.cache:
-                            story['bullets'][idx] = self.cache[cache_key]
-                        else:
-                            texts_to_translate.append(b)
-                            mapping.append((i, 'bullets', idx))
+                story['bullets'] = await asyncio.gather(*[self.translate_text(b, target_lang) for b in story['bullets']])
+            
+            # Translate key text fields
+            fields_to_translate = ['title', 'why', 'affected', 'headline']
+            for field in fields_to_translate:
+                if field in story and story[field]:
+                    story[field] = await self.translate_text(story[field], target_lang)
+            return story
 
-        if not texts_to_translate:
-            return translated_stories
+        # Process stories in small groups to distribute across keys and avoid bursts
+        results = []
+        batch_size = 3
+        for i in range(0, len(translated_stories), batch_size):
+            batch = translated_stories[i:i+batch_size]
+            results.extend(await asyncio.gather(*[translate_single_story(s) for s in batch]))
+            if i + batch_size < len(translated_stories):
+                await asyncio.sleep(0.3)  # Small breath between batches
 
-        # Batch translate
-        client = self._get_client()
-        if not client: return translated_stories
+        return results
+
+    async def translate_node_bulk(self, node_data: Dict[str, Any], target_lang: str) -> Dict[str, Any]:
+        """Translate an entire node dashboard in one bulk Groq call (Async)."""
+        if not target_lang or target_lang.lower() == 'english':
+            return node_data
+
+        client, key_info = self._get_client(target_lang)
+
+        articles_text = ""
+        stories = node_data.get("stories", [])
+        for idx, story in enumerate(stories, 1):
+            bullets = story.get("bullets", [])
+            bullet_str = "\n".join(f"- {b}" for b in bullets)
+            articles_text += (
+                f"ARTICLE {idx}\n\n"
+                f"HEADLINE:\n{story.get('title') or story.get('headline', '')}\n\n"
+                f"CORE DEVELOPMENT:\n{bullet_str}\n\n"
+                f"WHO IS AFFECTED:\n{story.get('affected') or story.get('who_is_affected', 'N/A')}\n\n"
+                f"WHY IT MATTERS:\n{story.get('why') or story.get('why_it_matters', 'N/A')}\n\n"
+                f"----------------------------------------\n\n"
+            )
+
+        prompt = f"""Translate these items into {target_lang}. Return ONLY a JSON object.
+Input:
+NODE TITLE: {node_data.get('node_title', '')}
+NODE DESCRIPTION: {node_data.get('node_description', '')}
+ARTICLES:
+{articles_text}
+
+JSON Format:
+{{
+  "node_title": "...",
+  "node_description": "...",
+  "articles": [ {{ "headline": "...", "bullets": ["...", "..."], "who_is_affected": "...", "why_it_matters": "..." }} ]
+}}"""
 
         try:
-            prompt = f"Translate the following list of news snippets into {target_lang}. Return the translations as a JSON array of strings in the exact same order. Do not include any other text.\n\n"
-            prompt += json.dumps(texts_to_translate, ensure_ascii=False)
-
-            response = client.chat.completions.create(
-                model="gpt-3.5-turbo",
+            response = await client.chat.completions.create(
+                model=GROQ_MODEL,
                 messages=[
-                    {"role": "system", "content": "You are a batch translator. Always return a JSON object with a 'translations' key containing a list of strings."},
+                    {"role": "system", "content": "Return ONLY valid JSON."},
                     {"role": "user", "content": prompt}
                 ],
-                temperature=0.2
+                temperature=0.2,
+                response_format={"type": "json_object"}
             )
-            
-            raw_content = response.choices[0].message.content.strip()
-            if "```json" in raw_content:
-                raw_content = raw_content.split("```json")[1].split("```")[0].strip()
-            
-            data = json.loads(raw_content)
-            results = data.get("translations", [])
-
-            if len(results) == len(texts_to_translate):
-                for idx, translated_val in enumerate(results):
-                    s_idx, field, b_idx = mapping[idx]
-                    orig_val = texts_to_translate[idx]
-                    
-                    if field == 'bullets':
-                        translated_stories[s_idx]['bullets'][b_idx] = translated_val
-                    else:
-                        translated_stories[s_idx][field] = translated_val
-                    
-                    self.cache[f"{target_lang}:{orig_val}"] = translated_val
-                
-                self._save_cache()
-            else:
-                logger.error(f"Batch translation count mismatch: {len(results)} vs {len(texts_to_translate)}")
-                for i, text in enumerate(texts_to_translate):
-                    translated_val = self.translate_text(text, target_lang)
-                    s_idx, field, b_idx = mapping[i]
-                    if field == 'bullets':
-                        translated_stories[s_idx]['bullets'][b_idx] = translated_val
-                    else:
-                        translated_stories[s_idx][field] = translated_val
-                
+            raw = response.choices[0].message.content.strip()
+            return json.loads(raw)
         except Exception as e:
-            logger.error(f"Batch translation failed: {e}")
-            for i, text in enumerate(texts_to_translate):
-                translated_val = self.translate_text(text, target_lang)
-                s_idx, field, b_idx = mapping[i]
-                if field == 'bullets':
-                    translated_stories[s_idx]['bullets'][b_idx] = translated_val
-                else:
-                    translated_stories[s_idx][field] = translated_val
-
-        return translated_stories
+            logger.error(f"Bulk node translation failed: {e}")
+            return node_data

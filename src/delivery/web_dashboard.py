@@ -1,35 +1,55 @@
 import os
-from loguru import logger
+import json
+import asyncio
+import logging
 import copy
 from datetime import datetime, timedelta
+
+# --- CACHES & GLOBALS ---
+_student_news_caches = {}
 from fastapi import APIRouter, Request, Depends, HTTPException, BackgroundTasks
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
-from src.database.models import SessionLocal, DailyDigest, User, VerifiedNews, Subscription, \
-    FlaggedArticle, RawNews, Advertisement, Newspaper
-from sqlalchemy import or_
+from src.database.models import SessionLocal, DailyDigest, User, VerifiedNews, Subscription
 from src.config import settings
 from src.config.firebase_config import verify_token
 from src.analysis.chat_engine import NewsChatEngine
 from src.collectors.universe_collector import UniverseCollector
 from src.utils.translator import NewsTranslator
+from src.utils.ui_trans import get_ui_translations
+from src.analysis.student_classifier import StudentClassifier
+from src.analysis.llm_analyzer import LLMAnalyzer
 from pydantic import BaseModel
 import requests
-
-from src.analysis.student_classifier import StudentClassifier
 
 chat_engine = NewsChatEngine()
 universe_collector = UniverseCollector()
 translator = NewsTranslator()
 student_classifier = StudentClassifier()
-# logger = logging.getLogger(__name__)
+llm_analyzer = LLMAnalyzer()
 
-router = APIRouter()
-templates = Jinja2Templates(directory="web/templates")
+# Define FIREBASE_CLIENT_CONFIG globally
+FIREBASE_CLIENT_CONFIG = {
+    "apiKey": settings.FIREBASE_API_KEY,
+    "authDomain": settings.FIREBASE_AUTH_DOMAIN,
+    "projectId": settings.FIREBASE_PROJECT_ID,
+    "storageBucket": settings.FIREBASE_STORAGE_BUCKET,
+    "messagingSenderId": settings.FIREBASE_MESSAGING_SENDER_ID,
+    "appId": settings.FIREBASE_APP_ID
+}
+logger = logging.getLogger(__name__)
 
-# Multi-country in-memory cache for student news
-_student_news_caches = {}
-
+# Language to Indian States mapping for regional intelligence
+LANGUAGE_TO_STATES = {
+    "Telugu": ["Andhra Pradesh", "Telangana", "Hyderabad", "Amaravati", "Visakhapatnam"],
+    "Hindi": ["Uttar Pradesh", "Bihar", "Madhya Pradesh", "Rajasthan", "Haryana", "Delhi"],
+    "Tamil": ["Tamil Nadu", "Chennai", "Coimbatore", "Madurai"],
+    "Kannada": ["Karnataka", "Bengaluru", "Mysuru", "Hubballi"],
+    "Malayalam": ["Kerala", "Thiruvananthapuram", "Kochi", "Kozhikode"],
+    "Bengali": ["West Bengal", "Kolkata", "Howrah"],
+    "Gujarati": ["Gujarat", "Ahmedabad", "Surat", "Vadodara"],
+    "Marathi": ["Maharashtra", "Mumbai", "Pune", "Nagpur"]
+}
 
 router = APIRouter()
 templates = Jinja2Templates(directory="web/templates")
@@ -100,16 +120,10 @@ def normalize_country(c):
     if not c: return None, []
     mapping = {
         "jp": "Japan", "us": "USA", "in": "India", "gb": "UK",
-        "ru": "Russia", "de": "Germany", "fr": "France", "sg": "Singapore",
-        "au": "Australia", "ca": "Canada", "ae": "UAE", "de": "Germany"
+        "ru": "Russia", "de": "Germany", "fr": "France", "sg": "Singapore"
     }
     # Reverse mapping: "India" -> "in"
     rev_mapping = {v.lower(): k for k, v in mapping.items()}
-    rev_mapping["america"] = "us"
-    rev_mapping["united states"] = "us"
-    rev_mapping["united kingdom"] = "gb"
-    rev_mapping["russia"] = "ru"
-    rev_mapping["uae"] = "ae"
     
     val = c.lower().strip()
     # Find canonical name
@@ -137,19 +151,17 @@ def get_db():
     finally:
         db.close()
 
-# Define FIREBASE_CLIENT_CONFIG globally
-FIREBASE_CLIENT_CONFIG = {
-    "apiKey": settings.FIREBASE_API_KEY,
-    "authDomain": settings.FIREBASE_AUTH_DOMAIN,
-    "projectId": settings.FIREBASE_PROJECT_ID,
-    "storageBucket": settings.FIREBASE_STORAGE_BUCKET,
-    "messagingSenderId": settings.FIREBASE_MESSAGING_SENDER_ID,
-    "appId": settings.FIREBASE_APP_ID
-}
-
 @router.get("/")
 async def landing_page(request: Request):
-    return templates.TemplateResponse("login.html", {"request": request, "firebase_config": FIREBASE_CLIENT_CONFIG})
+    firebase_config = {
+        "apiKey": settings.FIREBASE_API_KEY,
+        "authDomain": settings.FIREBASE_AUTH_DOMAIN,
+        "projectId": settings.FIREBASE_PROJECT_ID,
+        "storageBucket": settings.FIREBASE_STORAGE_BUCKET,
+        "messagingSenderId": settings.FIREBASE_MESSAGING_SENDER_ID,
+        "appId": settings.FIREBASE_APP_ID
+    }
+    return templates.TemplateResponse("login.html", {"request": request, "firebase_config": firebase_config})
 
 @router.get("/dashboard")
 async def dashboard(request: Request, category: str = None, country: str = None, lang: str = 'english', db: Session = Depends(get_db)):
@@ -198,6 +210,7 @@ async def dashboard(request: Request, category: str = None, country: str = None,
             latest_digest = db.query(DailyDigest).filter(DailyDigest.is_published == True).order_by(DailyDigest.date.desc()).first()
 
         # 4. Diagnostics & Status
+        from src.database.models import RawNews, VerifiedNews, Advertisement, Newspaper
         raw_count = db.query(RawNews).count()
         verified_count = db.query(VerifiedNews).count()
         
@@ -232,9 +245,9 @@ async def dashboard(request: Request, category: str = None, country: str = None,
             "system_status_msg": system_status
         }
         
-        # 5.B Freshness Filter (2 Hour Limit for high recency)
+        # 5.B Freshness Filter (8 Hour Limit)
         now_utc = datetime.utcnow()
-        two_hours_ago = now_utc - timedelta(hours=2)
+        eight_hours_ago = now_utc - timedelta(hours=8)
         
         def is_fresh(item):
             # Try to parse published_at if it exists
@@ -242,7 +255,7 @@ async def dashboard(request: Request, category: str = None, country: str = None,
             if pub:
                 try:
                     p_time = datetime.fromisoformat(pub.replace("Z", "+00:00"))
-                    return p_time > two_hours_ago
+                    return p_time > eight_hours_ago
                 except: return True
             return True
 
@@ -319,28 +332,48 @@ async def dashboard(request: Request, category: str = None, country: str = None,
                             if (item.get("country") in match_keys) or (item.get("country_name") in match_keys)
                         ]
             
-            # Global Node Translation
-            # Map country name to target language
-            country_langs = {
-                "India": "hindi", # Or other regional if needed, but Hindi is common fallback
-                "Japan": "japanese",
-                "Russia": "russian",
-                "Germany": "german",
-                "France": "french",
-                "UAE": "arabic",
-                "Singapore": "chinese",
-                "China": "chinese"
-            }
-            
-            target_lang = lang if (lang and lang.lower() != 'english') else country_langs.get(selected_country_name)
-            
-            if selected_country_name in country_langs and target_lang and target_lang.lower() != 'english':
-                logger.info(f"Translating node {selected_country_name} to {target_lang}")
-                sections_to_translate = ["top_stories", "breaking_news", "trending_news", "brief"]
-                for section in sections_to_translate:
-                    if section in digest_data:
-                        digest_data[section] = translator.translate_stories(digest_data[section], target_lang)
-                trending_title = translator.translate_text(trending_title, target_lang)
+            # Universal Node Translation (any country, any language)
+            if selected_country_name and lang and lang.lower() != 'english':
+                try:
+                    logger.info(f"Server-side regional translation to {lang} starting")
+                    
+                    # Top stories (full data)
+                    top = digest_data.get("top_stories", []) # Remove [:15] limit
+                    if top:
+                        stories_input = [
+                            {"title": s.get("title", ""), "bullets": s.get("bullets", [])[:5], # Increased bullet limit
+                             "why": s.get("why", ""), "affected": s.get("affected", "")} # Removed truncation
+                            for s in top
+                        ]
+                        res = await asyncio.wait_for(_do_translate(stories_input, lang, ""), timeout=45.0) # Increased timeout
+                        for i, s in enumerate(top):
+                            t = res.get("translated_stories", [])[i] if i < len(res.get("translated_stories", [])) else {}
+                            if t.get("title"): s["title"] = t["title"]
+                            if t.get("bullets"): s["bullets"] = t["bullets"]
+                            if t.get("why"):     s["why"]     = t["why"]
+                            if t.get("affected"): s["affected"] = t["affected"]
+
+                    # Briefs (titles only)
+                    brief = digest_data.get("brief", []) # Remove [:15] limit
+                    if brief:
+                        brief_input = [{"title": s.get("title", "")} for s in brief]
+                        brief_res = await asyncio.wait_for(_do_translate(brief_input, lang, ""), timeout=25.0)
+                        for i, s in enumerate(brief):
+                            t = brief_res.get("translated_stories", [])[i] if i < len(brief_res.get("translated_stories", [])) else {}
+                            if t.get("title"): s["title"] = t["title"]
+
+                    # Trending (titles only)
+                    trending = digest_data.get("trending_news", []) # Remove [:10] limit
+                    if trending:
+                        tr_input = [{"title": s.get("title", "")} for s in trending]
+                        tr_res = await asyncio.wait_for(_do_translate(tr_input, lang, trending_title), timeout=25.0)
+                        for i, s in enumerate(trending):
+                            t = tr_res.get("translated_stories", [])[i] if i < len(tr_res.get("translated_stories", [])) else {}
+                            if t.get("title"): s["title"] = t["title"]
+                        if tr_res.get("node_title"): trending_title = tr_res["node_title"]
+                        
+                except Exception as e:
+                    logger.error(f"Regional translation failed: {e}")
 
         # 7. Category Logic
         elif category and digest_data:
@@ -394,15 +427,21 @@ async def dashboard(request: Request, category: str = None, country: str = None,
                             seed = f"{item.get('title', '')}{idx}"
                             item["image_url"] = get_fallback_image(seed)
 
+        firebase_config = {
+            "apiKey": settings.FIREBASE_API_KEY,
+            "authDomain": settings.FIREBASE_AUTH_DOMAIN,
+            "projectId": settings.FIREBASE_PROJECT_ID,
+            "storageBucket": settings.FIREBASE_STORAGE_BUCKET,
+            "messagingSenderId": settings.FIREBASE_MESSAGING_SENDER_ID,
+            "appId": settings.FIREBASE_APP_ID
+        }
+
         # 10. Filter Newspapers by country (Guarantee Minimum 4)
         if country:
              # Normalize selected country name for newspaper matching
              target_name, _ = normalize_country(country)
              # Filter papers by country name or "Global"
-             specific_papers = [
-                 p for p in papers 
-                 if p.country and (p.country.lower() in [key.lower() for key in match_keys] or p.country.lower() == target_name.lower())
-             ]
+             specific_papers = [p for p in papers if p.country == target_name]
              global_papers = [p for p in papers if p.country == "Global"]
              
              # If less than 4 specific papers, pad with global
@@ -414,39 +453,55 @@ async def dashboard(request: Request, category: str = None, country: str = None,
         else:
              context_papers = [p for p in papers if p.country == "Global"]
 
-        # 11. Daily Short (Last 48 Hours Top Impact)
-        now_utc = datetime.utcnow()
-        yesterday = now_utc - timedelta(days=1)
-        yesterday_start = now_utc - timedelta(hours=48)
-        
-        # We query by created_at since published_at can be very unreliable
-        daily_short_articles = db.query(VerifiedNews).filter(
-            VerifiedNews.created_at >= yesterday_start
-        ).order_by(VerifiedNews.impact_score.desc()).limit(8).all()
-        
-        daily_short = {
-            "date_str": yesterday.strftime("%B %d"),
-            "articles": []
-        }
-        for article in daily_short_articles:
-            impact_str = "Global trends"
-            if article.impact_tags and isinstance(article.impact_tags, list) and len(article.impact_tags) > 0:
-                impact_str = " + ".join(article.impact_tags[:2]).replace("#", "")
-            elif article.category:
-                impact_str = article.category.split(" ")[0]
-                
-            daily_short["articles"].append({
-                "title": article.title,
-                "impact": impact_str,
-                "image_url": getattr(article, "image_url", None) or (article.raw_news.url_to_image if article.raw_news else None) or get_fallback_image(article.title)
-            })
+        # 11. SERVER-SIDE TRANSLATION — ONE sequential Groq call per section when lang is set
+        if lang and lang.lower() != 'english' and not country:
+            try:
+                logger.info(f"Server-side translation to {lang} starting")
+                # Only translate top_stories (the article cards) with full data
+                top = digest_data.get("top_stories", []) # Remove limit
+                if top:
+                    stories_input = [
+                        {"title": s.get("title", ""), "bullets": s.get("bullets", [])[:5],
+                         "why": s.get("why", ""), "affected": s.get("affected", "")}
+                        for s in top
+                    ]
+                    res = await asyncio.wait_for(_do_translate(stories_input, lang, ""), timeout=45.0)
+                    for i, s in enumerate(top):
+                        t = res.get("translated_stories", [])[i] if i < len(res.get("translated_stories", [])) else {}
+                        if t.get("title"): s["title"] = t["title"]
+                        if t.get("bullets"): s["bullets"] = t["bullets"]
+                        if t.get("why"):     s["why"]     = t["why"]
+                        if t.get("affected"): s["affected"] = t["affected"]
+
+                # Translate brief titles (titles only, keep it small)
+                brief = digest_data.get("brief", []) # Remove limit
+                if brief:
+                    brief_input = [{"title": s.get("title", "")} for s in brief]
+                    brief_res = await asyncio.wait_for(_do_translate(brief_input, lang, ""), timeout=25.0)
+                    for i, s in enumerate(brief):
+                        t = brief_res.get("translated_stories", [])[i] if i < len(brief_res.get("translated_stories", [])) else {}
+                        if t.get("title"): s["title"] = t["title"]
+
+                # Translate trending titles
+                trending = digest_data.get("trending_news", []) # Remove limit
+                if trending:
+                    tr_input = [{"title": s.get("title", "")} for s in trending]
+                    tr_res = await asyncio.wait_for(_do_translate(tr_input, lang, trending_title), timeout=25.0)
+                    for i, s in enumerate(trending):
+                        t = tr_res.get("translated_stories", [])[i] if i < len(tr_res.get("translated_stories", [])) else {}
+                        if t.get("title"): s["title"] = t["title"]
+                    if tr_res.get("node_title"): trending_title = tr_res["node_title"]
+
+                logger.info(f"Server-side translation to {lang} complete")
+            except Exception as e:
+                logger.error(f"Server-side translation failed: {e}")
+
 
         context = {
             "request": request,
-            "daily_short": daily_short,
             "digest": digest_data,
             "date": latest_digest.date.strftime("%Y-%m-%d") if latest_digest else "System Initializing",
-            "firebase_config": FIREBASE_CLIENT_CONFIG,
+            "firebase_config": firebase_config,
             "left_ads": left_ads,
             "right_ads": right_ads,
             "mobile_ads": mobile_ads,
@@ -458,7 +513,9 @@ async def dashboard(request: Request, category: str = None, country: str = None,
             "selected_country_name": selected_country_name,
             "country_match_keys": country_match_keys,
             "blueprint": blueprint,
-            "admin_api_url": os.getenv("ADMIN_API_URL", "http://localhost:5000")
+            "admin_api_url": os.getenv("ADMIN_API_URL", "http://localhost:5000"),
+            "selected_lang": lang,
+            "ui": get_ui_translations(lang),
         }
 
         return templates.TemplateResponse("dashboard.html", context)
@@ -471,7 +528,15 @@ async def dashboard(request: Request, category: str = None, country: str = None,
 
 @router.get("/saved")
 async def saved_page(request: Request):
-    return templates.TemplateResponse("saved.html", {"request": request, "firebase_config": FIREBASE_CLIENT_CONFIG})
+    firebase_config = {
+        "apiKey": settings.FIREBASE_API_KEY,
+        "authDomain": settings.FIREBASE_AUTH_DOMAIN,
+        "projectId": settings.FIREBASE_PROJECT_ID,
+        "storageBucket": settings.FIREBASE_STORAGE_BUCKET,
+        "messagingSenderId": settings.FIREBASE_MESSAGING_SENDER_ID,
+        "appId": settings.FIREBASE_APP_ID
+    }
+    return templates.TemplateResponse("saved.html", {"request": request, "firebase_config": firebase_config})
 
 @router.get("/history")
 async def history(request: Request):
@@ -484,67 +549,18 @@ async def newspaper(request: Request):
 @router.get("/business-intelligence")
 async def business_intelligence(request: Request, db: Session = Depends(get_db)):
     # This route is restricted
-    
-    # The actual enforcement happens client-side via Firebase for UX, 
-    # but we will also pass the data only if we find a valid digest.
     latest_digest = db.query(DailyDigest).filter(DailyDigest.is_published == True).order_by(DailyDigest.date.desc()).first()
     
     premium_intel = []
     if latest_digest and "premium_intel" in latest_digest.content_json:
         premium_intel = latest_digest.content_json["premium_intel"]
         
-    # Generate data for Visual Intelligence Dashboard
-    import random
-    
-    trending_labels = ["AI Inference", "Geopolitical Friction", "Data Center Buildout", "Supply Chain", "Regulation Risk", "Interest Rates"]
-    trending_data = [random.randint(60, 100) for _ in trending_labels]
-    
-    geo_labels = ["Day -6", "Day -5", "Day -4", "Day -3", "Day -2", "Yesterday", "Today"]
-    geo_data = [random.randint(40, 95) for _ in geo_labels]
-    
-    economic_labels = ["Inflation Risk", "Yield Curves", "Job Growth", "Tech Cap-Ex", "Commodities", "Real Estate"]
-    economic_data = [random.randint(30, 90) for _ in economic_labels]
-    
-    visual_intel = {
-        "trending": {
-            "labels": trending_labels,
-            "data": trending_data
-        },
-        "geopolitical": {
-            "labels": geo_labels,
-            "data": geo_data
-        },
-        "economic": {
-            "labels": economic_labels,
-            "data": economic_data
-        }
-    }
-
     return templates.TemplateResponse("business_intel.html", {
         "request": request, 
         "firebase_config": FIREBASE_CLIENT_CONFIG,
-        "premium_intel": premium_intel,  # Changed from premium_data
-        "visual_intel": visual_intel,
+        "premium_intel": premium_intel,
         "restricted_email": "chaparapuashokreddy666@gmail.com"
     })
-
-@router.get("/personal-agent")
-async def personal_agent_page(request: Request):
-    db = SessionLocal()
-    try:
-        # Fetch all unique categories from VerifiedNews for interest selection
-        categories_raw = db.query(VerifiedNews.category).distinct().all()
-        categories = [c[0] for c in categories_raw if c[0]]
-        if not categories:
-            categories = ["Technology", "AI", "Business", "Sports", "Politics", "World"]
-        
-        return templates.TemplateResponse("personal_agent.html", {
-            "request": request, 
-            "firebase_config": FIREBASE_CLIENT_CONFIG,
-            "available_interests": sorted(categories)
-        })
-    finally:
-        db.close()
 
 @router.get("/api/article/{article_id}")
 async def get_article_detail(article_id: int, db: Session = Depends(get_db)):
@@ -612,7 +628,7 @@ async def get_breaking_news(country: str = None, db: Session = Depends(get_db)):
     return {"breaking_news": breaking_news}
 
 @router.get("/api/more-stories/{category}/{offset}")
-async def get_more_stories(category: str, offset: int, country: str = None, db: Session = Depends(get_db)):
+async def get_more_stories(category: str, offset: int, country: str = None, lang: str = "english", db: Session = Depends(get_db)):
     """Fetch more stories for a specific category with offset"""
     latest_digest = db.query(DailyDigest).filter(DailyDigest.is_published == True).order_by(DailyDigest.date.desc()).first()
     
@@ -721,6 +737,39 @@ async def get_more_stories(category: str, offset: int, country: str = None, db: 
     # Check if there are more stories after this batch
     subset = stories[start:end]
     has_more = len(stories) > end
+    
+    # Run translation if requested
+    if lang and lang.lower() != "english" and subset:
+        try:
+            from src.utils.translator import NewsTranslator
+            translator = NewsTranslator()
+            translated_subset = []
+            
+            # Map simple dictionaries to Pydantic-like structures expected by API translation
+            class StoryProxy:
+                def __init__(self, data):
+                    self.title = data.get("title", "")
+                    self.summary = data.get("summary", "")
+                    self.why_it_matters = data.get("why", "")
+                    self.who_is_affected = data.get("affected", "")
+                    self.summary_bullets = data.get("bullets", [])
+                    self.db_data = data
+            
+            proxies = [StoryProxy(s) for s in subset]
+            translated_proxies = await translator._do_translate(proxies, lang)
+            
+            for i, p in enumerate(translated_proxies):
+                t_data = dict(subset[i])
+                t_data["title"] = p.title
+                t_data["summary"] = p.summary
+                t_data["why"] = p.why_it_matters
+                t_data["affected"] = p.who_is_affected
+                t_data["bullets"] = p.summary_bullets
+                translated_subset.append(t_data)
+                
+            subset = translated_subset
+        except Exception as e:
+            print(f"Error translating more-stories: {str(e)}")
     
     return {
         "stories": subset,
@@ -864,6 +913,332 @@ async def chat_with_news(payload: ChatRequest, db: Session = Depends(get_db)):
     response = chat_engine.get_response(db, payload.query)
     return {"status": "success", "response": response}
 
+
+class TranslateNodeRequest(BaseModel):
+    stories: list
+    lang: str
+    node_title: str = ""
+    node_description: str = ""
+    node_navigation: str = ""
+    node_categories: str = ""
+
+@router.post("/api/state-news")
+async def get_state_news(payload: TranslateNodeRequest):
+    """
+    Fetch news for states associated with a regional language and translate them.
+    Uses concurrent asyncio.gather with per-state + total timeouts to stay under 20 seconds.
+    """
+    lang = payload.lang
+    if lang not in LANGUAGE_TO_STATES:
+        return {"status": "skipped", "message": f"No state mapping for {lang}", "stories": []}
+        
+    states = LANGUAGE_TO_STATES[lang]
+    
+    # Fetch ALL states concurrently with a per-state timeout (6s max each)
+    async def fetch_state_safe(state: str):
+        try:
+            result = await asyncio.wait_for(
+                universe_collector.fetch_country_news(f"{state}, India"),
+                timeout=6.0
+            )
+            stories = result.get("breaking_news", []) + result.get("top_stories", [])
+            for s in stories:
+                if 'tags' not in s:
+                    s['tags'] = []
+                s['tags'].append(state)
+                s['is_state_news'] = True
+            return stories
+        except asyncio.TimeoutError:
+            logger.warning(f"State news fetch timed out for: {state}")
+            return []
+        except Exception as e:
+            logger.error(f"Failed to fetch news for state {state}: {e}")
+            return []
+
+    try:
+        # Run all state fetches concurrently, total cap 20 seconds
+        all_results = await asyncio.wait_for(
+            asyncio.gather(*[fetch_state_safe(state) for state in states]),
+            timeout=20.0
+        )
+    except asyncio.TimeoutError:
+        logger.warning("State news overall fetch timed out after 20s")
+        all_results = []
+
+    # Flatten and deduplicate
+    all_state_stories = []
+    seen_urls = set()
+    for story_list in all_results:
+        for s in story_list:
+            url = s.get('url', '')
+            if url and url not in seen_urls:
+                seen_urls.add(url)
+                all_state_stories.append(s)
+            elif not url:
+                all_state_stories.append(s)
+            if len(all_state_stories) >= 15:
+                break
+        if len(all_state_stories) >= 15:
+            break
+            
+    if not all_state_stories:
+        return {"status": "no_news", "stories": []}
+        
+    # Translate concurrently (already optimized in translate_stories)
+    translated_stories = await translator.translate_stories(all_state_stories[:15], lang)
+    
+    return {
+        "status": "success",
+        "stories": translated_stories
+    }
+
+
+@router.post("/api/translate-node")
+async def translate_node(payload: TranslateNodeRequest):
+    """
+    Translate stories and UI labels using a SINGLE Groq API call.
+    Hard 15-second timeout — returns originals on failure so page never hangs.
+    """
+    if not payload.lang or payload.lang.lower() == "english":
+        return {"status": "success", "translated_stories": payload.stories, "node_title": payload.node_title or ""}
+
+    if not payload.stories and not payload.node_title:
+        return {"status": "success", "translated_stories": [], "node_title": ""}
+
+    try:
+        result = await asyncio.wait_for(
+            _do_translate(payload.stories, payload.lang, payload.node_title or ""),
+            timeout=45.0
+        )
+        return result
+    except asyncio.TimeoutError:
+        logger.warning(f"translate-node timed out for lang={payload.lang}, returning originals")
+        return {"status": "success", "translated_stories": payload.stories, "node_title": payload.node_title or ""}
+    except Exception as e:
+        logger.error(f"translate-node failed: {e}")
+        return {"status": "success", "translated_stories": payload.stories, "node_title": payload.node_title or ""}
+
+
+async def _do_translate(stories: list, lang: str, node_title: str) -> dict:
+    """Translate stories: tries Groq first, falls back to MyMemory free API."""
+    if not stories and not node_title:
+        return {"status": "success", "translated_stories": stories, "node_title": node_title}
+
+    # TIER 1: Try Groq (single JSON call, all keys)
+    result = await _try_groq_translate(stories, lang, node_title)
+    if result:
+        return result
+
+    # TIER 2: Fallback — Google API (Sequential)
+    logger.info(f"Groq unavailable, falling back to Google Translate for {len(stories)} items in {lang}")
+    result = await _google_translate_fallback(stories, lang, node_title)
+    if result:
+        return result
+
+    # TIER 3: Return originals
+    logger.error("All translation methods failed, returning originals")
+    return {"status": "success", "translated_stories": stories, "node_title": node_title}
+
+
+async def _try_groq_translate(stories: list, lang: str, node_title: str) -> dict | None:
+    """Try all Groq keys. Returns translated dict on success, None on failure."""
+    input_obj = {"lang": lang, "node_title": node_title, "items": []}
+    for s in stories:
+        item = {"t": s.get("title", s.get("headline", ""))}
+        bulls = s.get("bullets", [])
+        if bulls: item["b"] = bulls[:3]
+        why = s.get("why", "")[:120]
+        if why: item["w"] = why
+        aff = s.get("affected", "")[:80]
+        if aff: item["a"] = aff
+        input_obj["items"].append(item)
+
+    prompt = (f"Translate the following JSON into {lang}. Return ONLY valid JSON with the same structure.\n"
+              f"Fields: \"node_title\", \"items\" array each with \"t\"=title, optionally \"b\"=bullets[], \"w\"=why, \"a\"=affected.\n"
+              f"Input JSON:\n{json.dumps(input_obj, ensure_ascii=False)}")
+
+    # Try specialized key first if available
+    client, key_info = translator._get_client(lang)
+    if client:
+        try:
+            logger.info(f"Using Groq {key_info} for translation to {lang}")
+            response = await client.chat.completions.create(
+                model="llama-3.3-70b-versatile",
+                messages=[
+                    {"role": "system", "content": "You are a professional translator. Return ONLY valid JSON."},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.1,
+                response_format={"type": "json_object"},
+                timeout=45 # Increased timeout
+            )
+            translated = json.loads(response.choices[0].message.content.strip())
+            translated_items = translated.get("items", [])
+            merged = []
+            for i, orig in enumerate(stories):
+                tr = translated_items[i] if i < len(translated_items) else {}
+                m = dict(orig)
+                if tr.get("t"): m["title"] = tr["t"]; m["headline"] = tr["t"]
+                if tr.get("b"): m["bullets"] = tr["b"]
+                if tr.get("w"): m["why"] = tr["w"]
+                if tr.get("a"): m["affected"] = tr["a"]
+                merged.append(m)
+            return {"status": "success", "translated_stories": merged, "node_title": translated.get("node_title", node_title)}
+        except Exception as e:
+            logger.warning(f"Specialized Groq key failed for {lang}, falling back to rotation: {e}")
+
+    all_keys = translator.groq_keys if translator.groq_keys else []
+    for attempt, key in enumerate(all_keys):
+        client_obj = translator._clients.get(key)
+        if not client_obj:
+            from openai import AsyncOpenAI
+            client_obj = AsyncOpenAI(api_key=key, base_url="https://api.groq.com/openai/v1")
+            translator._clients[key] = client_obj
+        try:
+            logger.info(f"Groq attempt {attempt+1}/{len(all_keys)} key=...{key[-6:]}")
+            response = await client_obj.chat.completions.create(
+                model="llama-3.3-70b-versatile",
+                messages=[
+                    {"role": "system", "content": "You are a professional translator. Return ONLY valid JSON."},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.1,
+                response_format={"type": "json_object"},
+                timeout=22
+            )
+            translated = json.loads(response.choices[0].message.content.strip())
+            translated_items = translated.get("items", [])
+            merged = []
+            for i, orig in enumerate(stories):
+                tr = translated_items[i] if i < len(translated_items) else {}
+                m = dict(orig)
+                if tr.get("t"): m["title"] = tr["t"]; m["headline"] = tr["t"]
+                if tr.get("b"): m["bullets"] = tr["b"]
+                if tr.get("w"): m["why"] = tr["w"]
+                if tr.get("a"): m["affected"] = tr["a"]
+                merged.append(m)
+            return {"status": "success", "translated_stories": merged, "node_title": translated.get("node_title", node_title)}
+        except Exception as e:
+            if "rate_limit" in str(e).lower() or "429" in str(e):
+                logger.warning(f"Groq rate limit on key ...{key[-6:]} - Bypassing retries to fallback.")
+                return None
+            else:
+                logger.error(f"Groq error key ...{key[-6:]}: {e}")
+    return None
+
+
+# Language code map for Google API Fallback
+_GOOGLE_LANG_CODES = {
+    "Telugu": "te", "Hindi": "hi", "Tamil": "ta", "Kannada": "kn",
+    "Malayalam": "ml", "Arabic": "ar", "Japanese": "ja", "Spanish": "es",
+    "French": "fr", "German": "de", "Russian": "ru", "Chinese": "zh-CN",
+    "Korean": "ko", "Portuguese": "pt", "Turkish": "tr",
+    # Maps for abbreviated requests from frontend
+    "TE": "te", "HI": "hi", "TA": "ta", "KN": "kn", "ML": "ml", "AR": "ar",
+    "JA": "ja", "ES": "es", "FR": "fr", "DE": "de", "RU": "ru", "ZH": "zh-CN",
+    "KO": "ko", "PT": "pt", "TR": "tr", "EN": "en"
+}
+
+async def _google_translate_fallback(stories: list, lang: str, node_title: str) -> dict | None:
+    """Translate ALL texts sequentially using Google Translate free API to avoid IP rate limits."""
+    import urllib.parse
+    import aiohttp
+    
+    lang_code = _GOOGLE_LANG_CODES.get(lang)
+    if not lang_code:
+        return None
+
+    # Translate one string via Google API
+    async def string_translate_one(session: aiohttp.ClientSession, text: str, sem: asyncio.Semaphore) -> str:
+        if not text or not text.strip():
+            return text
+            
+        url = f"https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl={lang_code}&dt=t&q={urllib.parse.quote(text[:800])}"
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36"
+        }
+        
+        async with sem:
+            try:
+                # Tiny stagger to avoid immediate IP ban, but otherwise concurrent
+                await asyncio.sleep(0.05) 
+                async with session.get(url, headers=headers, timeout=aiohttp.ClientTimeout(total=8)) as resp:
+                    if resp.status == 200:
+                        data = await resp.json()
+                        # Google API returns nested lists: [[[translated_text, original_text, ...]]]
+                        t = "".join([segment[0] for segment in data[0] if segment[0]])
+                        if t and t.upper() != text.upper():
+                            return t
+                    else:
+                        logger.warning(f"Google API Fallback returned {resp.status}")
+            except Exception as e:
+                logger.error(f"Google fallback error: {e}")
+        return text
+
+    # Step 1: Collect ALL unique texts to translate (flat list with source mapping)
+    texts_to_translate = []  # list of strings
+    # Format: [(story_idx, field_name, bullet_idx_or_None), ...]
+    text_map = []
+
+    for i, s in enumerate(stories):
+        title = s.get("title", "")
+        if title:
+            text_map.append((i, "title", None))
+            texts_to_translate.append(title)
+        for bi, b in enumerate(s.get("bullets", [])[:3]):
+            text_map.append((i, "bullet", bi))
+            texts_to_translate.append(b)
+        why = s.get("why", "")[:200]
+        if why:
+            text_map.append((i, "why", None))
+            texts_to_translate.append(why)
+        aff = s.get("affected", "")[:150]
+        if aff:
+            text_map.append((i, "affected", None))
+            texts_to_translate.append(aff)
+
+    if node_title:
+        texts_to_translate.append(node_title)
+
+    logger.info(f"Google API Fallback: translating {len(texts_to_translate)} texts to {lang} concurrently")
+
+    # Step 2: Translate ALL concurrently with a semaphore
+    sem = asyncio.Semaphore(15) 
+    async with aiohttp.ClientSession() as session:
+        translated_texts = await asyncio.gather(
+            *[string_translate_one(session, t, sem) for t in texts_to_translate],
+            return_exceptions=True
+        )
+
+    # Replace exceptions with originals
+    translated_texts = [
+        texts_to_translate[i] if isinstance(r, Exception) else r
+        for i, r in enumerate(translated_texts)
+    ]
+
+    # Step 3: Map translated texts back onto stories
+    merged = [dict(s) for s in stories]
+    for i, (story_idx, field, bullet_idx) in enumerate(text_map):
+        val = translated_texts[i]
+        m = merged[story_idx]
+        if field == "title":
+            m["title"] = val
+            m["headline"] = val
+        elif field == "bullet":
+            if "bullets" not in m or not isinstance(m.get("bullets"), list):
+                m["bullets"] = list(stories[story_idx].get("bullets", [])[:3])
+            if bullet_idx < len(m["bullets"]):
+                m["bullets"][bullet_idx] = val
+        elif field == "why":
+            m["why"] = val
+        elif field == "affected":
+            m["affected"] = val
+
+    new_title = translated_texts[len(text_map)] if node_title and len(translated_texts) > len(text_map) else node_title
+    return {"status": "success", "translated_stories": merged, "node_title": new_title}
+
+
+
 class NoteRequest(BaseModel):
     text: str
     url: str
@@ -898,237 +1273,6 @@ async def get_universe_news(payload: UniverseRequest):
     except Exception as e:
         logger.error(f"Universe News Fetch Failed: {e}")
         return {"status": "error", "message": str(e)}
-@router.get("/student-news")
-def student_news_page(request: Request, category: str = None, profile: str = None, country: str = "India", db: Session = Depends(get_db)):
-    """Render the standalone Student News portal."""
-    from .web_dashboard import normalize_country
-    target_name, _ = normalize_country(country)
-    country_key = target_name.lower()
-    
-    # Process or get from cache
-    _update_student_cache_if_needed(db, force=False, country=country)
-    
-    # Filter by category if requested
-    cache = _student_news_caches.get(country_key, {})
-    articles = cache.get("articles", [])
-    if category and category != "All":
-        articles = [a for a in articles if a["category"] == category]
-        
-    if profile:
-        articles = [a for a in articles if profile in a.get("profiles", [])]
-        
-    trends = cache.get("trends", {})
-    
-    firebase_config = {
-        "apiKey": settings.FIREBASE_API_KEY,
-        "authDomain": settings.FIREBASE_AUTH_DOMAIN,
-        "projectId": settings.FIREBASE_PROJECT_ID,
-        "storageBucket": settings.FIREBASE_STORAGE_BUCKET,
-        "messagingSenderId": settings.FIREBASE_MESSAGING_SENDER_ID,
-        "appId": settings.FIREBASE_APP_ID
-    }
-    
-    # Render template (which we will create next)
-    return templates.TemplateResponse("student_news.html", {
-        "request": request,
-        "articles": articles,
-        "trends": trends,
-        "current_category": category or "All",
-        "current_profile": profile,
-        "current_country": country,
-        "categories": list(student_classifier.CATEGORIES.keys()),
-        "profiles": list(student_classifier.PROFILES.keys()),
-        "firebase_config": firebase_config
-    })
-
-@router.get("/api/student-news")
-def api_get_student_news(category: str = None, profile: str = None, country: str = "India", db: Session = Depends(get_db)):
-    """API endpoint to get student news JSON."""
-    from .web_dashboard import normalize_country
-    _update_student_cache_if_needed(db, force=False, country=country)
-    target_name, _ = normalize_country(country)
-    country_key = target_name.lower()
-    articles = _student_news_caches.get(country_key, {}).get("articles", [])
-    if category and category != "All":
-        articles = [a for a in articles if a["category"] == category]
-    if profile:
-        articles = [a for a in articles if profile in a.get("profiles", [])]
-    return {"status": "success", "count": len(articles), "articles": articles}
-
-@router.get("/api/student-trends")
-def api_get_student_trends(country: str = "India", db: Session = Depends(get_db)):
-    """API endpoint to get student news trends."""
-    from .web_dashboard import normalize_country
-    _update_student_cache_if_needed(db, force=False, country=country)
-    target_name, _ = normalize_country(country)
-    country_key = target_name.lower()
-    return {"status": "success", "trends": _student_news_caches.get(country_key, {}).get("trends", {})}
-
-import requests
-
-def _fetch_live_scholarships_cache() -> list:
-    """Fetch external scholarships live to prevent 0 counts in the UI."""
-    api_key = settings.GNEWS_API_KEY
-    if not api_key: return []
-    
-    # Highly specific query to enforce India scholarship results
-    query = "scholarship OR fellowship AND student OR application"
-    url = f"https://gnews.io/api/v4/search?q={query}&country=in&lang=en&max=5&apikey={api_key}"
-    
-    results = []
-    try:
-        resp = requests.get(url, timeout=5)
-        if resp.status_code == 200:
-            articles = resp.json().get("articles", [])
-            for article in articles:
-                # Force format it as Student Data
-                student_data = {
-                    "id": 0,
-                    "title": article.get("title", "Live Scholarship"),
-                    "summary": article.get("description", "Opportunity for students."),
-                    "category": "Scholarships & Internships",
-                    "tags": ["#Scholarship", "#LiveOpportunity"],
-                    "profiles": ["General Student"],
-                    "direct_links": [article.get("url", "#")],
-                    "important_dates": ["Check Link"],
-                    "authority": article.get("source", {}).get("name", "Various"),
-                    "urgency": "High",
-                    "trend_score": 95,
-                    "url": article.get("url", "#"),
-                    "source_name": article.get("source", {}).get("name", "GNews"),
-                    "published_at": article.get("publishedAt", datetime.utcnow().isoformat()),
-                    "image_url": article.get("image") or get_fallback_image(article.get("title", ""))
-                }
-                results.append(student_data)
-    except Exception as e:
-        logger.error(f"Live scholarship fetch failed: {e}")
-        
-    return results
-
-def _update_student_cache_if_needed(db: Session, force: bool = False, country: str = "India"):
-    """Internal helper to process country news into Student structure with caching."""
-    from .web_dashboard import normalize_country
-    target_name, match_keys = normalize_country(country)
-    country_key = target_name.lower()
-    
-    if country_key not in _student_news_caches:
-        _student_news_caches[country_key] = {"last_updated": None, "articles": [], "trends": {}}
-        
-    cache = _student_news_caches[country_key]
-    now = datetime.utcnow()
-    # Cache for 15 minutes
-    if not force and cache["last_updated"] and (now - cache["last_updated"]).total_seconds() < 900:
-        return cache
-        
-    logger.info(f"Updating Student News Cache by processing {target_name} articles...")
-    
-    # Fetch recent news (using specific country code in DB)
-    # Relax lookback to 30 days to ensure we have content
-    lookback_period = now - timedelta(days=30)
-    
-    if target_name == "Global" or not country or country.lower() == "global":
-        raw_articles_query = db.query(VerifiedNews).filter(
-            VerifiedNews.created_at >= lookback_period
-        )
-    else:
-        from sqlalchemy import or_
-        raw_articles_query = db.query(VerifiedNews).filter(
-            or_(
-                VerifiedNews.country.in_(match_keys),
-                # If a query matches the headline text, it might be beneficial
-            ),
-            VerifiedNews.created_at >= lookback_period
-        )
-        
-    raw_articles = raw_articles_query.order_by(VerifiedNews.created_at.desc()).limit(2000).all()
-    
-    processed_articles = []
-    category_counts = {cat: 0 for cat in student_classifier.CATEGORIES.keys()}
-    category_counts["General Student News"] = 0
-    
-    scholarship_count = 0
-    exam_mentions = {}
-    
-    for article in raw_articles:
-        # Pre-filter using fast string matching to avoid processing entirely unrelated news
-        combined = f"{article.title} {article.content}".lower()
-        # Relaxed pre-filter: catch more educational and student-relevant content
-        student_keywords = ["student", "exam", "school", "university", "college", "scholarship", "syllabus", "ugc", "cbse", "nta", "placement", "job", "career", "admission", "startup", "grant", "hackathon", "funding", "education", "learning", "degree", "diploma", "research", "campus", "internship", "hiring", "recruitment", "youth", "academic", "tuition", "entrance", "vacancy", "intern", "campus", "test", "result", "admit", "coaching", "training", "fresher", "neet", "jee", "upsc", "ssc", "board exam", "admit card"]
-        if not any(kw in combined for kw in student_keywords):
-            continue
-            
-        student_data = student_classifier.process_article(article.title, article.content)
-        if not student_data:
-            continue
-        
-        # Merge with existing article metadata for UI
-        student_data["id"] = article.id
-        student_data["url"] = article.raw_news.url if article.raw_news else "#"
-        student_data["source_name"] = article.raw_news.source_name if article.raw_news else "Unknown"
-        student_data["published_at"] = article.published_at.isoformat() if article.published_at else None
-        student_data["image_url"] = article.raw_news.url_to_image if article.raw_news and article.raw_news.url_to_image else get_fallback_image(article.title)
-        
-        processed_articles.append(student_data)
-        
-        # Track trend stats
-        category_counts[student_data["category"]] += 1
-        if "Scholarship" in student_data["category"]:
-            scholarship_count += 1
-            
-        # Track exams for trends
-        if "Exam" in student_data["category"]:
-            for tag in student_data["tags"]:
-                if tag != "#Exam" and tag != "#CompetitiveExams" and tag != "#BoardExams":
-                    exam_mentions[tag] = exam_mentions.get(tag, 0) + 1
-                    
-    # Inject LIVE scholarships if the DB returned 0
-    if scholarship_count == 0:
-        logger.info("0 scholarships found in DB. Fetching live from external sources...")
-        live_scholarships = _fetch_live_scholarships_cache()
-        for article in live_scholarships:
-            processed_articles.append(article)
-            scholarship_count += 1
-            category_counts["Scholarships & Internships"] += 1
-
-    # Sort by trend score (highest first)
-    processed_articles.sort(key=lambda x: x["trend_score"], reverse=True)
-    
-    # Finalize trends
-    top_exam = max(exam_mentions.items(), key=lambda x: x[1])[0] if exam_mentions else "N/A"
-    
-    # Most discussed topic
-    most_discussed = "N/A"
-    if processed_articles:
-        top_tags = {}
-        ignored_tags = {"#Exam", "#CompetitiveExams", "#BoardExams", "#Education", "#Update", "#News", "#Students", "#Scholarship", "#Job", "#Career", "#StudyAbroad", "#Result"}
-        for a in processed_articles[:20]:
-            for t in a.get("tags", []):
-                if t not in ignored_tags:
-                    top_tags[t] = top_tags.get(t, 0) + 1
-        if top_tags:
-            most_discussed = max(top_tags.items(), key=lambda x: x[1])[0]
-    
-    # If no articles found for specific country, try to populate from Global for better UX
-    if len(processed_articles) == 0 and target_name != "Global":
-        logger.info(f"0 articles found for {target_name}. Attempting to fallback to Global student news.")
-        global_cache = _update_student_cache_if_needed(db, force=True, country="Global")
-        # Copy global result to this country's cache to ensure it's not empty
-        cache["articles"] = global_cache.get("articles", [])
-        cache["trends"] = global_cache.get("trends", {})
-        cache["last_updated"] = now
-        return cache
-
-    cache["articles"] = processed_articles
-    cache["trends"] = {
-        "total_articles": len(processed_articles),
-        "scholarship_count": scholarship_count,
-        "category_counts": category_counts,
-        "most_discussed_topic": most_discussed,
-        "top_trending_exam": top_exam
-    }
-    cache["last_updated"] = now
-    logger.info(f"Student Cache updated. Found {len(processed_articles)} relevant articles for {target_name}.")
-    return cache
 
 # --- ADMIN MANAGEMENT API ENDPOINTS ---
 
@@ -1259,46 +1403,241 @@ async def delete_newspaper(paper_id: int, db: Session = Depends(get_db)):
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
 
+# --- STUDENT NEWS PORTAL ---
+
+@router.get("/student-news")
+async def student_news_page(request: Request, category: str = None, profile: str = None, country: str = "India", lang: str = 'english', db: Session = Depends(get_db)):
+    """Render the standalone Student News portal."""
+    target_name, _ = normalize_country(country)
+    country_key = target_name.lower()
+    
+    # Process or get from cache
+    _update_student_cache_if_needed(db, force=False, country=country)
+    
+    # Filter by category if requested
+    cache = _student_news_caches.get(country_key, {})
+    articles = cache.get("articles", [])
+    if category and category != "All":
+        articles = [a for a in articles if a["category"] == category]
+        
+    if profile:
+        articles = [a for a in articles if profile in a.get("profiles", [])]
+        
+    trends = cache.get("trends", {})
+    # Translate if non-english
+    if lang and lang.lower() != 'english' and articles:
+        try:
+            trans_input = [{"title": a["title"], "summary": a["summary"]} for a in articles]
+            res = await _do_translate(trans_input, lang, "")
+            for i, a in enumerate(articles):
+                t = res.get("translated_stories", [])[i] if i < len(res.get("translated_stories", [])) else {}
+                if t.get("title"): a["title"] = t["title"]
+                if t.get("summary"): a["summary"] = t["summary"]
+        except Exception as e:
+            logger.error(f"Student news translation failed: {e}")
+
+    return templates.TemplateResponse("student_news.html", {
+        "request": request,
+        "articles": articles,
+        "trends": trends,
+        "categories": ["Scholarships & Internships", "Exams & Results", "Policy & Research", "Admissions & Courses", "Campus Life", "Career & Jobs"],
+        "profiles": ["High School", "Undergraduate", "Postgraduate", "PhD / Researcher", "Competitive Exam Aspirant"],
+        "current_category": category or "All",
+        "current_profile": profile,
+        "current_country": country,
+        "firebase_config": FIREBASE_CLIENT_CONFIG,
+        "selected_lang": lang,
+        "ui": get_ui_translations(lang)
+    })
+
+@router.get("/api/get-student-news")
+def api_get_student_news(category: str = None, profile: str = None, country: str = "India", db: Session = Depends(get_db)):
+    """API endpoint to get student news JSON."""
+    _update_student_cache_if_needed(db, force=False, country=country)
+    target_name, _ = normalize_country(country)
+    country_key = target_name.lower()
+    articles = _student_news_caches.get(country_key, {}).get("articles", [])
+    if category and category != "All":
+        articles = [a for a in articles if a["category"] == category]
+    if profile:
+        articles = [a for a in articles if profile in a.get("profiles", [])]
+    return {"status": "success", "count": len(articles), "articles": articles}
+
+@router.get("/api/get-student-trends")
+def api_get_student_trends(country: str = "India", db: Session = Depends(get_db)):
+    """API endpoint to get student news trends."""
+    _update_student_cache_if_needed(db, force=False, country=country)
+    target_name, _ = normalize_country(country)
+    country_key = target_name.lower()
+    return {"status": "success", "trends": _student_news_caches.get(country_key, {}).get("trends", {})}
+
+def _fetch_live_scholarships_cache() -> list:
+    """Fetch external scholarships live to prevent 0 counts in the UI."""
+    api_key = settings.GNEWS_API_KEY
+    if not api_key: return []
+    
+    query = "scholarship OR fellowship AND student OR application"
+    url = f"https://gnews.io/api/v4/search?q={query}&country=in&lang=en&max=5&apikey={api_key}"
+    
+    results = []
+    try:
+        import requests
+        resp = requests.get(url, timeout=5)
+        if resp.status_code == 200:
+            articles = resp.json().get("articles", [])
+            for article in articles:
+                student_data = {
+                    "id": 0,
+                    "title": article.get("title", "Live Scholarship"),
+                    "summary": article.get("description", "Opportunity for students."),
+                    "category": "Scholarships & Internships",
+                    "tags": ["#Scholarship", "#LiveOpportunity"],
+                    "profiles": ["General Student"],
+                    "direct_links": [article.get("url", "#")],
+                    "important_dates": ["Check Link"],
+                    "authority": article.get("source", {}).get("name", "Various"),
+                    "urgency": "High",
+                    "trend_score": 95,
+                    "url": article.get("url", "#"),
+                    "source_name": article.get("source", {}).get("name", "GNews"),
+                    "published_at": (datetime.utcnow().isoformat()),
+                    "image_url": article.get("image") or get_fallback_image(article.get("title", ""))
+                }
+                results.append(student_data)
+    except Exception as e:
+        logger.error(f"Live scholarship fetch failed: {e}")
+    return results
+
+def _update_student_cache_if_needed(db: Session, force: bool = False, country: str = "India"):
+    """Internal helper to process country news into Student structure with caching."""
+    target_name, match_keys = normalize_country(country)
+    country_key = target_name.lower()
+    
+    if country_key not in _student_news_caches:
+        _student_news_caches[country_key] = {"last_updated": None, "articles": [], "trends": {}}
+        
+    cache = _student_news_caches[country_key]
+    now = datetime.utcnow()
+    if not force and cache["last_updated"] and (now - cache["last_updated"]).total_seconds() < 900:
+        return cache
+        
+    lookback_period = now - timedelta(days=30)
+    if target_name == "Global" or not country or country.lower() == "global":
+        raw_articles = db.query(VerifiedNews).filter(VerifiedNews.created_at >= lookback_period).order_by(VerifiedNews.created_at.desc()).limit(2000).all()
+    else:
+        from sqlalchemy import or_
+        raw_articles = db.query(VerifiedNews).filter(or_(VerifiedNews.country.in_(match_keys)), VerifiedNews.created_at >= lookback_period).order_by(VerifiedNews.created_at.desc()).limit(2000).all()
+        
+    processed_articles = []
+    category_counts = {cat: 0 for cat in student_classifier.CATEGORIES.keys()}
+    category_counts["General Student News"] = 0
+    scholarship_count = 0
+    exam_mentions = {}
+    
+    for article in raw_articles:
+        combined = f"{article.title} {article.content}".lower()
+        student_keywords = ["student", "exam", "school", "university", "college", "scholarship", "syllabus", "ugc", "cbse", "nta", "placement", "job", "career", "admission", "startup", "grant", "hackathon", "funding", "education", "learning", "degree", "diploma", "research", "campus", "internship", "hiring", "recruitment", "youth", "academic", "tuition", "entrance", "vacancy", "intern", "campus", "test", "result", "admit", "coaching", "training", "fresher", "neet", "jee", "upsc", "ssc", "board exam", "admit card"]
+        if not any(kw in combined for kw in student_keywords):
+            continue
+            
+        student_data = student_classifier.process_article(article.title, article.content)
+        if not student_data:
+            continue
+        
+        student_data.update({
+            "id": article.id,
+            "url": article.raw_news.url if article.raw_news else "#",
+            "source_name": article.raw_news.source_name if article.raw_news else "Unknown",
+            "published_at": article.published_at.isoformat() if article.published_at else None,
+            "image_url": article.raw_news.url_to_image if article.raw_news and article.raw_news.url_to_image else get_fallback_image(article.title)
+        })
+        processed_articles.append(student_data)
+        category_counts[student_data["category"]] += 1
+        if "Scholarship" in student_data["category"]:
+            scholarship_count += 1
+        if "Exam" in student_data["category"]:
+            for tag in student_data["tags"]:
+                if tag not in ["#Exam", "#CompetitiveExams", "#BoardExams"]:
+                    exam_mentions[tag] = exam_mentions.get(tag, 0) + 1
+                    
+    if scholarship_count == 0:
+        live_scholarships = _fetch_live_scholarships_cache()
+        for article in live_scholarships:
+            processed_articles.append(article)
+            scholarship_count += 1
+            category_counts["Scholarships & Internships"] += 1
+
+    processed_articles.sort(key=lambda x: x["trend_score"], reverse=True)
+    top_exam = max(exam_mentions.items(), key=lambda x: x[1])[0] if exam_mentions else "N/A"
+    
+    most_discussed = "N/A"
+    if processed_articles:
+        top_tags = {}
+        ignored_tags = {"#Exam", "#CompetitiveExams", "#BoardExams", "#Education", "#Update", "#News", "#Students", "#Scholarship", "#Job", "#Career", "#StudyAbroad", "#Result"}
+        for a in processed_articles[:20]:
+            for t in a.get("tags", []):
+                if t not in ignored_tags:
+                    top_tags[t] = top_tags.get(t, 0) + 1
+        if top_tags:
+            most_discussed = max(top_tags.items(), key=lambda x: x[1])[0]
+    
+    if len(processed_articles) == 0 and target_name != "Global":
+        global_cache = _update_student_cache_if_needed(db, force=True, country="Global")
+        cache.update({"articles": global_cache.get("articles", []), "trends": global_cache.get("trends", {}), "last_updated": now})
+        return cache
+
+    cache["articles"] = processed_articles
+    cache["trends"] = {
+        "total_articles": len(processed_articles),
+        "scholarship_count": scholarship_count,
+        "category_counts": category_counts,
+        "most_discussed_topic": most_discussed,
+        "top_trending_exam": top_exam
+    }
+    cache["last_updated"] = now
+    return cache
+
 # --- PERSONAL AI NEWS AGENT ---
 
 @router.get("/personal-agent")
-async def personal_agent_page(request: Request):
-    """Render the Personal AI News Agent UI."""
-    from src.analysis.llm_analyzer import LLMAnalyzer
-    analyzer = LLMAnalyzer()
-    # Get categories from the mock analyzer's logic or DB
-    available_interests = [
-        "AI & Machine Learning", "Business & Economy", "Defense & Security",
-        "Education", "Entertainment", "Environment & Climate", "General",
-        "India / Local News", "Lifestyle & Wellness", "Other News", "Politics",
-        "Science & Health", "Sports", "Technology", "Twitter 𝕏", "World News"
-    ]
-    return templates.TemplateResponse("personal_agent.html", {
-        "request": request, 
-        "available_interests": available_interests
-    })
+async def personal_agent_page(request: Request, lang: str = 'english'):
+    db = SessionLocal()
+    try:
+        categories_raw = db.query(VerifiedNews.category).distinct().all()
+        categories = [c[0] for c in categories_raw if c[0]]
+        if not categories:
+            categories = ["Technology", "AI", "Business", "Sports", "Politics", "World"]
+        
+        return templates.TemplateResponse("personal_agent.html", {
+            "request": request, 
+            "firebase_config": FIREBASE_CLIENT_CONFIG,
+            "available_interests": sorted(categories),
+            "selected_lang": lang,
+            "ui": get_ui_translations(lang)
+        })
+    finally:
+        db.close()
 
-@router.get("/api/personal-news")
-async def api_get_personal_news(interests: str, db: Session = Depends(get_db)):
-    """Fetch relevant news based on comma-separated user interests."""
-    if not interests:
+@router.get("/api/search-news")
+@router.get("/api/get-personal-news")
+async def api_get_personal_news(interests: str = None, q: str = None, lang: str = 'english', db: Session = Depends(get_db)):
+    """Fetch relevant news based on interests or search query."""
+    interests_to_search = []
+    if interests:
+        interests_to_search.extend([i.strip().lower() for i in interests.split(",")])
+    if q:
+        interests_to_search.append(q.strip().lower())
+        
+    if not interests_to_search:
         return {"status": "success", "articles": []}
         
-    interest_list = [i.strip().lower() for i in interests.split(",")]
-    
-    # Simple query matching tags, category, or title
     from sqlalchemy import or_
-    
-    # We want to match all interests, but limit to recent high impact news
     now_utc = datetime.utcnow()
-    lookback = now_utc - timedelta(days=5) # 5 days lookback
+    lookback = now_utc - timedelta(days=7)
     
     all_articles = []
-    
-    for interest in interest_list:
-        # Create a search term with wildcards for ILIKE
+    for interest in interests_to_search:
         search_term = f"%{interest}%"
-        
         articles = db.query(VerifiedNews).filter(
             or_(
                 VerifiedNews.category.ilike(search_term),
@@ -1308,160 +1647,54 @@ async def api_get_personal_news(interests: str, db: Session = Depends(get_db)):
             VerifiedNews.created_at >= lookback
         ).order_by(VerifiedNews.impact_score.desc(), VerifiedNews.created_at.desc()).limit(15).all()
         
-        # Structure for frontend
         for a in articles:
-            # Only add if not already in list
             if not any(existing["id"] == a.id for existing in all_articles):
-                all_articles.append({
+                article_data = {
                     "id": a.id,
                     "title": a.title,
                     "summary": a.why_it_matters or "Key developments in this area.",
                     "url": a.raw_news.url if a.raw_news else "#",
-                    "image_url": (a.raw_news.url_to_image if a.raw_news and a.raw_news.url_to_image else 
-                                 get_fallback_image(a.title)),
+                    "image_url": (a.raw_news.url_to_image if a.raw_news and a.raw_news.url_to_image else get_fallback_image(a.title)),
                     "source_name": a.raw_news.source_name if a.raw_news else "Global Intelligence",
                     "published_at": a.created_at.isoformat() if a.created_at else None,
                     "matched_interest": interest.title()
-                })
-                
-    # Sort mixed results by published date
+                }
+                all_articles.append(article_data)
+
+    # Apply Translations if lang != english
+    if lang and lang.lower() != 'english' and all_articles:
+        try:
+            trans_input = [{"title": a["title"], "summary": a["summary"]} for a in all_articles]
+            # Use _do_translate for portal data
+            res = await _do_translate(trans_input, lang, "")
+            for i, a in enumerate(all_articles):
+                t = res.get("translated_stories", [])[i] if i < len(res.get("translated_stories", [])) else {}
+                if t.get("title"): a["title"] = t["title"]
+                if t.get("summary"): a["summary"] = t["summary"]
+        except Exception as e:
+            logger.error(f"Personal news translation failed: {e}")
+
     all_articles.sort(key=lambda x: x["published_at"] or "", reverse=True)
-    
-    return {"status": "success", "articles": all_articles[:30]}
+    return {"status": "success", "articles": all_articles[:40], "has_more": False}
 
-@router.post("/api/chat-article")
-async def api_chat_article(request: Request, db: Session = Depends(get_db)):
-    data = await request.json()
-    article_id = data.get("article_id")
-    query = data.get("query")
-    
-    if not article_id or not query:
-        raise HTTPException(status_code=400, detail="Missing article_id or query")
-    
-    chat_engine = NewsChatEngine()
-    response = chat_engine.chat_with_article(db, article_id, query)
-    return {"response": response}
+@router.get("/crystal-ball")
+async def crystal_ball_page(request: Request, lang: str = 'english'):
+    """Render the AI Crystal Ball predictive page."""
+    return templates.TemplateResponse("crystal_ball.html", {
+        "request": request,
+        "selected_lang": lang,
+        "ui": get_ui_translations(lang)
+    })
 
-@router.post("/api/flag-article")
-async def api_flag_article(request: Request, db: Session = Depends(get_db)):
-    data = await request.json()
-    firebase_uid = data.get("firebase_uid")
-    news_id = data.get("news_id")
-    reason = data.get("reason", "Reported by user")
-    
-    user = db.query(User).filter(User.firebase_uid == firebase_uid).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    
-    # Check if already flagged by this user
-    existing = db.query(FlaggedArticle).filter(
-        FlaggedArticle.user_id == user.id,
-        FlaggedArticle.news_id == news_id
-    ).first()
-    
-    if existing:
-        return {"status": "already_flagged", "message": "You have already flagged this article."}
-    
-    # Create flag record
-    flag = FlaggedArticle(user_id=user.id, news_id=news_id, reason=reason)
-    db.add(flag)
-    
-    # Update article flag count
-    article = db.query(VerifiedNews).filter(VerifiedNews.id == news_id).first()
-    if article:
-        article.flag_count += 1
-        db.commit() # Save flag count first
-        
-        # Trigger AI verification if flagged first time
-        if article.flag_count == 1:
-            from src.analysis.llm_analyzer import LLMAnalyzer
-            analyzer = LLMAnalyzer()
-            result = await analyzer.verify_news_factcheck(article.title, article.content or "")
-            if result.get("is_fake"):
-                article.is_fake = True
-                # Award bounty points to the first reporter
-                user.bounty_points += 50
-                db.commit()
-                return {"status": "success", "message": "Fake news verified! 50 Bounty Points awarded.", "points": user.bounty_points}
-    
-    db.commit()
-    return {"status": "success", "message": "Report submitted. Our AI is verifying."}
-
-@router.get("/api/geopolitics-prediction")
+@router.get("/api/get-prediction")
 async def api_get_prediction(db: Session = Depends(get_db)):
-    # Get top 10 recent headlines for context
-    trends = db.query(VerifiedNews.title).order_by(VerifiedNews.created_at.desc()).limit(10).all()
-    trend_list = [t[0] for t in trends]
-    
-    from src.analysis.llm_analyzer import LLMAnalyzer
-    analyzer = LLMAnalyzer()
-    prediction = await analyzer.generate_geopolitical_prediction(trend_list)
-    return prediction
-
-@router.get("/api/search-news")
-async def api_search_news(
-    q: str = "", 
-    page: int = 1, 
-    interests: str = None, 
-    db: Session = Depends(get_db)
-):
-    offset = (page - 1) * 12
-    # Time filter: Try 14 days first to ensure "endless" feel
-    lookback = datetime.utcnow() - timedelta(days=14)
-    query = db.query(VerifiedNews).filter(VerifiedNews.created_at >= lookback)
-    
-    if q:
-        query = query.filter(
-            or_(
-                VerifiedNews.title.ilike(f"%{q}%"),
-                VerifiedNews.why_it_matters.ilike(f"%{q}%"),
-                VerifiedNews.content.ilike(f"%{q}%")
-            )
-        )
-    
-    if interests:
-        interest_list = [i.strip() for i in interests.split(',')]
-        # More robust matching: handle both exact and partial
-        filters = []
-        for i in interest_list:
-            # Case-insensitive partial match for category
-            filters.append(VerifiedNews.category.ilike(f"%{i}%"))
-            # Match in text as well if specifically searching interests
-            filters.append(VerifiedNews.title.ilike(f"%{i}%"))
-            filters.append(VerifiedNews.why_it_matters.ilike(f"%{i}%"))
-            # If it's "Defense & Security", also try "Defense" 
-            if " & " in i:
-                parts = i.split(" & ")
-                for p in parts:
-                    if len(p) > 3:
-                        filters.append(VerifiedNews.category.ilike(f"%{p}%"))
-        
-        query = query.filter(or_(*filters))
-    
-    # HF DEBUG: Expand lookback if no results found to avoid blank screen
-    articles = query.order_by(VerifiedNews.impact_score.desc(), VerifiedNews.created_at.desc()).offset(offset).limit(12).all()
-    
-    if not articles and page == 1:
-        # Retry with MUCH longer lookback (30 days) to ensure something shows up
-        lookback_extended = datetime.utcnow() - timedelta(days=30)
-        query_ext = db.query(VerifiedNews).filter(VerifiedNews.created_at >= lookback_extended)
-        if q:
-            query_ext = query_ext.filter(or_(VerifiedNews.title.ilike(f"%{q}%"), VerifiedNews.why_it_matters.ilike(f"%{q}%")))
-        if interests:
-            query_ext = query_ext.filter(or_(*filters))
-        articles = query_ext.order_by(VerifiedNews.impact_score.desc(), VerifiedNews.created_at.desc()).offset(offset).limit(12).all()
-    
-    return {
-        "status": "success",
-        "articles": [{
-            "id": a.id,
-            "title": a.title,
-            "summary": (a.why_it_matters or (" ".join(a.summary_bullets[:2]) if a.summary_bullets else ""))[:500],
-            "url": a.url,
-            "image_url": a.image_url or "https://images.unsplash.com/photo-1504711434969-e33886168f5c?q=80&w=1000",
-            "source_name": a.source_name,
-            "published_at": a.created_at.isoformat() if a.created_at else None,
-            "matched_interest": a.category
-        } for a in articles],
-        "has_more": len(articles) == 12
-    }
+    """Generate a fresh AI prediction for the Crystal Ball."""
+    try:
+        # Get top trending titles for context
+        latest = db.query(VerifiedNews).order_by(VerifiedNews.created_at.desc()).limit(10).all()
+        trends = [a.title for a in latest]
+        prediction = await llm_analyzer.generate_geopolitical_prediction(trends)
+        return {"status": "success", "prediction": prediction}
+    except Exception as e:
+        logger.error(f"Prediction API failed: {e}")
+        return {"status": "error", "message": str(e)}
